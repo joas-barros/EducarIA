@@ -1,0 +1,57 @@
+{% extends "app/base.html" %}
+{% block title %}Dashboard — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  <nav class="sidebar">
+    <div class="sb-logo">
+      <div class="sb-logo-text">Educar<em>IA</em></div>
+      <div class="sb-logo-sub">Gestão pedagógica</div>
+    </div>
+    <div class="sb-nav">
+      <div class="sb-section">Principal</div>
+      <a href="{% url 'dashboard' %}" class="sb-item active">
+        <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+          <rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/>
+          <rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/>
+        </svg>
+        Dashboard
+      </a>
+    </div>
+    <div class="sb-foot">
+      <div class="sb-user">
+        <div class="sb-avatar">{{ user.first_name|first|upper }}{{ user.last_name|first|upper }}</div>
+        <div>
+          <div class="sb-name">{{ user.get_full_name }}</div>
+          <form method="post" action="{% url 'logout' %}" style="display:inline">
+            {% csrf_token %}
+            <button type="submit" style="background:none;border:none;cursor:pointer;font-size:10px;color:rgba(255,255,255,.35);font-family:inherit;padding:0">
+              Sair
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Bem-vindo ao EducarIA, {{ user.first_name }} 👋</div>
+        <div class="page-sub">Comece criando sua primeira disciplina</div>
+      </div>
+    </div>
+    <div class="content">
+      <div class="onboard-banner">
+        <div class="onboard-text">
+          <div class="t">Antes de gerar questões, você precisa criar uma disciplina</div>
+          <div class="s">Cadastre sua disciplina, faça upload da ementa e o motor de IA estará pronto<br>para gerar questões personalizadas em segundos.</div>
+        </div>
+        <button class="btn btn-primary" style="white-space:nowrap;flex-shrink:0" disabled>
+          + Criar primeira disciplina
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
