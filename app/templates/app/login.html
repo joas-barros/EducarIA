@@ -1,0 +1,54 @@
+{% extends "app/base.html" %}
+{% block title %}Entrar — EducarIA{% endblock %}
+
+{% block body %}
+<div class="login-wrap">
+  <div class="login-deco"></div>
+  <div class="login-deco2"></div>
+  <div class="login-card">
+    <div class="login-logo">Educar<em>IA</em></div>
+    <div class="login-tagline">A plataforma que transforma sua ementa<br>em banco de questões em segundos</div>
+
+    {% if error %}
+      <div class="error-box">{{ error }}</div>
+    {% endif %}
+
+    <form method="post" action="{% url 'login' %}">
+      {% csrf_token %}
+
+      <div class="field">
+        <label>{{ form.email.label }}</label>
+        <input class="inp{% if form.email.errors %} error{% endif %}"
+               type="email" name="{{ form.email.html_name }}"
+               value="{{ form.email.value|default:'' }}" autocomplete="email">
+        {% for err in form.email.errors %}
+          <div class="field-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <div class="field" style="margin-bottom:24px">
+        <label>{{ form.senha.label }}</label>
+        <input class="inp{% if form.senha.errors %} error{% endif %}"
+               type="password" name="{{ form.senha.html_name }}" autocomplete="current-password">
+        {% for err in form.senha.errors %}
+          <div class="field-error">{{ err }}</div>
+        {% endfor %}
+      </div>
+
+      <button type="submit" class="btn btn-primary" style="width:100%;padding:11px">
+        Entrar na plataforma
+      </button>
+    </form>
+
+    <div class="login-divider">ou</div>
+
+    <a href="{% url 'cadastro' %}" class="btn" style="width:100%;padding:10px;text-align:center;display:block;text-decoration:none">
+      Criar conta gratuitamente
+    </a>
+
+    <p style="text-align:center;font-size:10.5px;color:var(--ink-30);margin-top:18px;line-height:1.6">
+      Ao acessar, você concorda com nossos Termos de Uso.<br>Seus dados são protegidos pela LGPD.
+    </p>
+  </div>
+</div>
+{% endblock %}
