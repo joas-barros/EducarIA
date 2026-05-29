@@ -115,3 +115,42 @@ body{font-family:'Sora',sans-serif;background:var(--paper);color:var(--ink);font
 .badge{display:inline-flex;align-items:center;font-size:10.5px;font-weight:500;padding:3px 9px;border-radius:20px;gap:4px}
 .badge-green{background:var(--green-light);color:var(--green-dark)}
 .badge-amber{background:var(--amber-light);color:var(--amber)}
+.badge-gray{background:rgba(17,24,22,.06);color:var(--ink-60)}
+.badge-blue{background:var(--blue-light);color:var(--blue)}
+
+/* DISCIPLINA CARDS (lista) */
+.disciplina-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.disciplina-card{background:var(--white);border:1px solid var(--ink-10);border-radius:var(--r-lg);padding:18px;transition:all .15s;box-shadow:var(--shadow);text-decoration:none;display:block;color:inherit}
+.disciplina-card:hover{border-color:var(--green);box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.disciplina-card.sem-ementa{border-color:#e8c89a}
+.disciplina-card-add{border:1px dashed var(--ink-10);border-radius:var(--r-lg);padding:18px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;min-height:140px;text-decoration:none;color:var(--ink-60);background:transparent;transition:all .15s;box-shadow:none}
+.disciplina-card-add:hover{border-color:var(--green);color:var(--green);background:var(--green-light)}
+.t-name{font-size:14px;font-weight:600;color:var(--ink)}
+.t-meta{font-size:11px;color:var(--ink-60);margin-top:2px}
+
+/* PROGRESS BAR */
+.prog-bar{height:5px;background:var(--ink-10);border-radius:10px;overflow:hidden;margin-top:2px}
+.prog-fill{height:100%;background:var(--green);border-radius:10px}
+.prog-label{font-size:10.5px;color:var(--ink-60);margin-bottom:4px;margin-top:10px}
+
+/* EMENTA ITEM (detalhe da disciplina) */
+.ementa-item{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--paper);border-radius:var(--r-md);margin-bottom:8px;border:1px solid var(--ink-10)}
+.ementa-icon{width:34px;height:34px;border-radius:var(--r-sm);background:var(--green-light);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+/* METRIC BOX (contadores no detalhe) */
+.metric-box{background:var(--paper);border-radius:var(--r-md);padding:14px;text-align:center}
+.metric-val{font-size:24px;font-weight:700;color:var(--ink)}
+.metric-lbl{font-size:11px;color:var(--ink-60);margin-top:3px}
+
+/* EMPTY STATE */
+.empty-state{text-align:center;padding:32px 20px;color:var(--ink-60)}
+.empty-state-icon{font-size:28px;margin-bottom:12px;opacity:.4}
+.empty-state-title{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:6px}
+.empty-state-sub{font-size:12px;line-height:1.6}
+
+/* BREADCRUMB */
+.breadcrumb{font-size:11px;color:var(--ink-60);cursor:pointer;margin-bottom:2px;text-decoration:none;display:inline-block}
+.breadcrumb:hover{color:var(--green)}
+
+/* WARN BOX (alertas amarelos inline) */
+.warn-box{background:var(--amber-light);border-radius:var(--r-md);padding:10px 12px;font-size:11.5px;color:var(--amber);line-height:1.5;margin:8px 0}
