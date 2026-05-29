@@ -1,6 +1,7 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Count
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils import timezone
 from django.views.decorators.http import require_POST
@@ -9,8 +10,9 @@ from formtools.wizard.views import SessionWizardView
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
+    EmentaForm,
 )
-from .models import Disciplina
+from .models import Disciplina, Ementa
 
 Professor = get_user_model()
 
@@ -130,14 +132,18 @@ class DisciplinaCreateView(LoginRequiredMixin, SessionWizardView):
 
 @login_required
 def disciplinas_list(request):
-    disciplinas = request.user.disciplinas.all()
+    disciplinas = request.user.disciplinas.annotate(num_ementas=Count('ementas'))
     return render(request, 'app/disciplinas.html', {'disciplinas': disciplinas})
 
 
 @login_required
 def disciplina_detalhe(request, pk):
     disciplina = get_object_or_404(Disciplina, id=pk, professor=request.user)
-    return render(request, 'app/disciplina_detalhe.html', {'disciplina': disciplina})
+    ementas = disciplina.ementas.all()
+    return render(request, 'app/disciplina_detalhe.html', {
+        'disciplina': disciplina,
+        'ementas': ementas,
+    })
 
 
 @login_required
@@ -193,3 +199,59 @@ def disciplina_excluir(request, pk):
         disciplina.soft_delete()
         return redirect('disciplinas')
     return render(request, 'app/disciplina_excluir.html', {'disciplina': disciplina})
+
+
+# ------------------------------------------------------------------ Ementas
+
+@login_required
+def ementa_nova(request, disciplina_pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+
+    if request.method == 'POST':
+        form = EmentaForm(request.POST, request.FILES)
+        if form.is_valid():
+            arquivo = form.cleaned_data.get('arquivo')
+            texto = (form.cleaned_data.get('texto_colado') or '').strip()
+
+            ementa = Ementa(
+                disciplina=disciplina,
+                titulo=form.cleaned_data['titulo'],
+                descricao=form.cleaned_data.get('descricao', ''),
+            )
+
+            if arquivo:
+                ementa.tipo_fonte = 'arquivo'
+                ementa.arquivo_nome = arquivo.name
+                ementa.arquivo_tipo = arquivo.name.rsplit('.', 1)[-1].lower()
+                ementa.arquivo_tamanho_bytes = arquivo.size
+                ementa.arquivo = arquivo
+            else:
+                ementa.tipo_fonte = 'texto_colado'
+                ementa.texto_colado = texto
+
+            ementa.save()
+            return redirect('disciplina_detalhe', pk=disciplina.id)
+    else:
+        form = EmentaForm()
+
+    return render(request, 'app/ementa_nova.html', {'form': form, 'disciplina': disciplina})
+
+
+@login_required
+def ementa_excluir(request, disciplina_pk, pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+    ementa = get_object_or_404(Ementa, id=pk, disciplina=disciplina)
+
+    if request.method == 'POST':
+        if ementa.arquivo:
+            try:
+                ementa.arquivo.delete(save=False)
+            except Exception:
+                pass
+        ementa.delete()
+        return redirect('disciplina_detalhe', pk=disciplina.id)
+
+    return render(request, 'app/ementa_excluir.html', {
+        'ementa': ementa,
+        'disciplina': disciplina,
+    })

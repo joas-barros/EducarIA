@@ -90,3 +90,6 @@ db.sqlite3
 
 #venv
 venv/
+
+# Media files (uploaded by users — not tracked in git)
+media/
