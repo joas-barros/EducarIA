@@ -107,6 +107,62 @@ class LoginForm(forms.Form):
     senha = forms.CharField(widget=forms.PasswordInput, label='Senha')
 
 
+EXTENSOES_ACEITAS = {'.pdf', '.docx', '.txt'}
+TAMANHO_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+class EmentaForm(forms.Form):
+    titulo = forms.CharField(
+        max_length=200,
+        label='Título',
+        widget=forms.TextInput(attrs={'placeholder': 'Ex: Ementa 2026 — 1º semestre'}),
+    )
+    descricao = forms.CharField(
+        max_length=500,
+        required=False,
+        label='Descrição (opcional)',
+        widget=forms.Textarea(attrs={'rows': 2, 'placeholder': 'Resumo breve do conteúdo...'}),
+    )
+    arquivo = forms.FileField(
+        required=False,
+        label='Arquivo (PDF, DOCX, TXT — máx. 10 MB)',
+    )
+    texto_colado = forms.CharField(
+        required=False,
+        label='Ou cole o texto da ementa',
+        widget=forms.Textarea(attrs={
+            'rows': 6,
+            'placeholder': 'Cole aqui o conteúdo da ementa...',
+        }),
+    )
+
+    def clean_arquivo(self):
+        arquivo = self.cleaned_data.get('arquivo')
+        if not arquivo:
+            return arquivo
+        nome = arquivo.name.lower()
+        ext = '.' + nome.rsplit('.', 1)[-1] if '.' in nome else ''
+        if ext not in EXTENSOES_ACEITAS:
+            raise forms.ValidationError('Formato não suportado. Use PDF, DOCX ou TXT.')
+        if arquivo.size > TAMANHO_MAX_BYTES:
+            raise forms.ValidationError('Arquivo muito grande. Máximo permitido: 10 MB.')
+        return arquivo
+
+    def clean(self):
+        cleaned = super().clean()
+        arquivo = cleaned.get('arquivo')
+        texto = (cleaned.get('texto_colado') or '').strip()
+        if not arquivo and not texto:
+            raise forms.ValidationError(
+                'É necessário enviar um arquivo ou colar o texto da ementa.'
+            )
+        if arquivo and texto:
+            raise forms.ValidationError(
+                'Envie apenas um arquivo OU cole o texto — não os dois ao mesmo tempo.'
+            )
+        return cleaned
+
+
 class DisciplinaStep1Form(forms.Form):
     nome = forms.CharField(
         max_length=200,
