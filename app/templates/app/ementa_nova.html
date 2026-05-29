@@ -1,0 +1,102 @@
+{% extends "app/base.html" %}
+{% block title %}Nova ementa — {{ disciplina.nome }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="breadcrumb">← {{ disciplina.nome }}</a>
+        <div class="page-title">Nova ementa</div>
+        <div class="page-sub">Adicione um arquivo ou cole o texto da ementa</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:580px">
+        <form method="post" enctype="multipart/form-data">
+          {% csrf_token %}
+
+          {# Erros não-field (validação cruzada) #}
+          {% if form.non_field_errors %}
+            <div class="error-box" style="margin-bottom:16px">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="card">
+
+            {# Título #}
+            <div class="field">
+              <label>Título</label>
+              <input class="inp{% if form.titulo.errors %} error{% endif %}"
+                     type="text" name="titulo"
+                     value="{{ form.titulo.value|default:'' }}"
+                     placeholder="Ex: Ementa 2026 — 1º semestre" autofocus>
+              {% for err in form.titulo.errors %}
+                <div class="field-error">{{ err }}</div>
+              {% endfor %}
+            </div>
+
+            {# Descrição #}
+            <div class="field">
+              <label>Descrição <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+              <textarea class="ta" name="descricao" rows="2"
+                        placeholder="Resumo breve do conteúdo...">{{ form.descricao.value|default:'' }}</textarea>
+            </div>
+
+            {# Divisor #}
+            <div style="margin:20px 0;display:flex;align-items:center;gap:12px">
+              <div style="flex:1;height:1px;background:var(--ink-10)"></div>
+              <div style="font-size:11px;font-weight:600;color:var(--ink-30);text-transform:uppercase;letter-spacing:.5px">Conteúdo</div>
+              <div style="flex:1;height:1px;background:var(--ink-10)"></div>
+            </div>
+
+            {# Upload de arquivo #}
+            <div class="field">
+              <label>Arquivo <span style="font-weight:400;text-transform:none;letter-spacing:0">(PDF, DOCX ou TXT — máx. 10 MB)</span></label>
+              <label class="upload-box" for="id_arquivo">
+                <div class="upload-icon">
+                  <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="var(--ink-60)" stroke-width="1.5">
+                    <path d="M8 11V3M5 6l3-3 3 3M2 13h12"/>
+                  </svg>
+                </div>
+                <div style="font-size:13px;color:var(--ink-60);margin-bottom:4px">Clique para selecionar o arquivo</div>
+                <div style="font-size:11px;color:var(--ink-30)">PDF, DOCX, TXT — máx. 10 MB</div>
+              </label>
+              <input type="file" id="id_arquivo" name="arquivo"
+                     accept=".pdf,.docx,.txt" style="display:none"
+                     onchange="this.previousElementSibling.querySelector('div:nth-child(2)').textContent = this.files[0] ? this.files[0].name : 'Clique para selecionar o arquivo'">
+              {% for err in form.arquivo.errors %}
+                <div class="field-error">{{ err }}</div>
+              {% endfor %}
+            </div>
+
+            {# Separador ou #}
+            <div style="text-align:center;font-size:11px;color:var(--ink-30);margin:16px 0;font-weight:500">— ou —</div>
+
+            {# Texto colado #}
+            <div class="field">
+              <label>Cole o texto da ementa</label>
+              <textarea class="ta{% if form.texto_colado.errors %} error{% endif %}"
+                        name="texto_colado" rows="6"
+                        placeholder="Cole aqui o conteúdo da ementa...">{{ form.texto_colado.value|default:'' }}</textarea>
+              {% for err in form.texto_colado.errors %}
+                <div class="field-error">{{ err }}</div>
+              {% endfor %}
+            </div>
+
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Enviar ementa</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

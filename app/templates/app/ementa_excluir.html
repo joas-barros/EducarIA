@@ -1,0 +1,51 @@
+{% extends "app/base.html" %}
+{% block title %}Excluir ementa — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="breadcrumb">← {{ disciplina.nome }}</a>
+        <div class="page-title">Excluir ementa</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:500px">
+        <div class="card">
+          <div style="display:flex;gap:14px;align-items:flex-start;margin-bottom:20px">
+            <div style="width:40px;height:40px;border-radius:50%;background:var(--red-light);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:18px">⚠️</div>
+            <div>
+              <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:4px">
+                Excluir "{{ ementa.titulo }}"?
+              </div>
+              <div style="font-size:13px;color:var(--ink-60);line-height:1.5">
+                Esta ação removerá a ementa do sistema.
+                {% if ementa.tipo_fonte == 'arquivo' %}
+                  O arquivo também será excluído do storage.
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <div class="warn-box" style="margin-bottom:20px">
+            <strong>As questões já geradas a partir desta ementa não serão removidas.</strong>
+            Elas permanecem no seu banco de questões normalmente.
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="btn">Cancelar</a>
+              <button type="submit" class="btn btn-danger">Confirmar exclusão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
