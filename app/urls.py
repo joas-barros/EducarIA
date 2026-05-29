@@ -13,4 +13,7 @@ urlpatterns = [
     path('disciplinas/<uuid:pk>/', views.disciplina_detalhe, name='disciplina_detalhe'),
     path('disciplinas/<uuid:pk>/editar/', views.disciplina_editar, name='disciplina_editar'),
     path('disciplinas/<uuid:pk>/excluir/', views.disciplina_excluir, name='disciplina_excluir'),
+
+    path('disciplinas/<uuid:disciplina_pk>/ementas/nova/', views.ementa_nova, name='ementa_nova'),
+    path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:pk>/excluir/', views.ementa_excluir, name='ementa_excluir'),
 ]
