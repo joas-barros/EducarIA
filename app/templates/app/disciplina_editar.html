@@ -1,0 +1,122 @@
+{% extends "app/base.html" %}
+{% block title %}Editar {{ disciplina.nome }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="breadcrumb">← {{ disciplina.nome }}</a>
+        <div class="page-title">Editar disciplina</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:600px">
+        <form method="post">
+          {% csrf_token %}
+
+          {# Dados da disciplina #}
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Dados da disciplina</div>
+
+            <div class="field">
+              <label>Nome da disciplina</label>
+              <input class="inp{% if form.nome.errors %} error{% endif %}"
+                     type="text" name="nome"
+                     value="{{ form.nome.value|default:'' }}">
+              {% for err in form.nome.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Nível de ensino</label>
+                <select class="sel{% if form.nivel.errors %} error{% endif %}" name="nivel">
+                  {% for val, label in form.nivel.field.choices %}
+                    <option value="{{ val }}"{% if form.nivel.value == val %} selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+                {% for err in form.nivel.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>Série / Ano <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <input class="inp" type="text" name="serie_ano"
+                       value="{{ form.serie_ano.value|default:'' }}"
+                       placeholder="Ex: 3º ano">
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Turno <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <select class="sel" name="turno">
+                  {% for val, label in form.turno.field.choices %}
+                    <option value="{{ val }}"{% if form.turno.value == val %} selected{% endif %}>{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label>Nº de alunos <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <input class="inp" type="number" name="num_alunos_estimado"
+                       value="{{ form.num_alunos_estimado.value|default:'' }}"
+                       placeholder="Ex: 32" min="1">
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>Início do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <input class="inp" type="date" name="periodo_inicio"
+                       value="{{ form.periodo_inicio.value|default:'' }}">
+              </div>
+              <div class="field">
+                <label>Fim do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+                <input class="inp" type="date" name="periodo_fim"
+                       value="{{ form.periodo_fim.value|default:'' }}">
+              </div>
+            </div>
+          </div>
+
+          {# Preferências de IA #}
+          <div class="card" style="margin-bottom:20px">
+            <div class="card-title">Preferências de IA <span style="font-weight:400;text-transform:none;letter-spacing:0;font-size:11px">(opcional)</span></div>
+
+            <div class="field">
+              <label>Dificuldade padrão das questões</label>
+              <select class="sel" name="dificuldade_padrao">
+                {% for val, label in form.dificuldade_padrao.field.choices %}
+                  <option value="{{ val }}"{% if form.dificuldade_padrao.value == val %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="field">
+              <label>Tipos de questão preferidos</label>
+              {% for val, label in form.tipos_preferidos.field.choices %}
+                <label class="check-row">
+                  <input type="checkbox" name="tipos_preferidos" value="{{ val }}"
+                         {% if val in form.tipos_preferidos.value %}checked{% endif %}>
+                  {{ label }}
+                </label>
+              {% endfor %}
+            </div>
+
+            <div class="field">
+              <label>Observações para a IA <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+              <textarea class="ta" name="observacoes_ia"
+                        placeholder="Ex: focar em interpretação de texto, evitar questões muito teóricas...">{{ form.observacoes_ia.value|default:'' }}</textarea>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end">
+            <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Salvar alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

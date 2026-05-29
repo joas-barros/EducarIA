@@ -1,0 +1,148 @@
+{% extends "app/base.html" %}
+{% block title %}Nova disciplina — EducarIA{% endblock %}
+
+{% block body %}
+<div style="display:flex;align-items:center;justify-content:center;background:var(--paper);min-height:100vh;padding:40px 16px">
+  <div style="background:var(--white);border:1px solid var(--ink-10);border-radius:var(--r-xl);padding:36px 32px;width:520px;box-shadow:var(--shadow-md)">
+
+    <a href="{% url 'disciplinas' %}" style="font-size:12px;color:var(--ink-60);display:inline-block;margin-bottom:20px;text-decoration:none">
+      ← Voltar para disciplinas
+    </a>
+
+    <div class="login-logo" style="font-size:22px;text-align:left;margin-bottom:4px">Nova disciplina</div>
+    <div style="font-size:13px;color:var(--ink-60);margin-bottom:22px">Preencha os dados da sua disciplina</div>
+
+    {# Indicador de 2 steps #}
+    {% with current=wizard.steps.step1 %}
+    <div class="steps">
+      <div class="step-node">
+        <div class="step-circle {% if current == 1 %}active{% elif current > 1 %}done{% endif %}">
+          {% if current > 1 %}✓{% else %}1{% endif %}
+        </div>
+        <div class="step-label {% if current == 1 %}active{% elif current > 1 %}done{% endif %}">Dados da disciplina</div>
+      </div>
+      <div class="step-line {% if current > 1 %}done{% endif %}"></div>
+      <div class="step-node">
+        <div class="step-circle {% if current == 2 %}active{% endif %}">2</div>
+        <div class="step-label {% if current == 2 %}active{% endif %}">Preferências de IA</div>
+      </div>
+    </div>
+    {% endwith %}
+
+    <form method="post">
+      {% csrf_token %}
+      {{ wizard.management_form }}
+
+      {# STEP 1 — Dados da disciplina #}
+      {% if wizard.steps.current == 'dados' %}
+        <div class="field">
+          <label>Nome da disciplina</label>
+          <input class="inp{% if wizard.form.nome.errors %} error{% endif %}"
+                 type="text" name="{{ wizard.form.nome.html_name }}"
+                 value="{{ wizard.form.nome.value|default:'' }}"
+                 placeholder="Ex: Inglês 3º ano A" autofocus>
+          {% for err in wizard.form.nome.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Nível de ensino</label>
+            <select class="sel{% if wizard.form.nivel.errors %} error{% endif %}"
+                    name="{{ wizard.form.nivel.html_name }}">
+              {% for val, label in wizard.form.nivel.field.choices %}
+                <option value="{{ val }}"{% if wizard.form.nivel.value == val %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% for err in wizard.form.nivel.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Série / Ano <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input class="inp" type="text" name="{{ wizard.form.serie_ano.html_name }}"
+                   value="{{ wizard.form.serie_ano.value|default:'' }}"
+                   placeholder="Ex: 3º ano">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Turno <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <select class="sel" name="{{ wizard.form.turno.html_name }}">
+              {% for val, label in wizard.form.turno.field.choices %}
+                <option value="{{ val }}"{% if wizard.form.turno.value == val %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="field">
+            <label>Nº de alunos <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input class="inp" type="number" name="{{ wizard.form.num_alunos_estimado.html_name }}"
+                   value="{{ wizard.form.num_alunos_estimado.value|default:'' }}"
+                   placeholder="Ex: 32" min="1">
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Início do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input class="inp" type="date" name="{{ wizard.form.periodo_inicio.html_name }}"
+                   value="{{ wizard.form.periodo_inicio.value|default:'' }}">
+          </div>
+          <div class="field">
+            <label>Fim do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+            <input class="inp" type="date" name="{{ wizard.form.periodo_fim.html_name }}"
+                   value="{{ wizard.form.periodo_fim.value|default:'' }}">
+          </div>
+        </div>
+
+      {# STEP 2 — Preferências de IA #}
+      {% elif wizard.steps.current == 'config_ia' %}
+        <div style="background:var(--green-light);border-radius:var(--r-md);padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--green-dark)">
+          Todos os campos abaixo são opcionais. A IA usará padrões inteligentes se você não preencher.
+        </div>
+
+        <div class="field">
+          <label>Dificuldade padrão das questões</label>
+          <select class="sel" name="{{ wizard.form.dificuldade_padrao.html_name }}">
+            {% for val, label in wizard.form.dificuldade_padrao.field.choices %}
+              <option value="{{ val }}"{% if wizard.form.dificuldade_padrao.value == val %} selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Tipos de questão preferidos</label>
+          {% for val, label in wizard.form.tipos_preferidos.field.choices %}
+            <label class="check-row">
+              <input type="checkbox"
+                     name="{{ wizard.form.tipos_preferidos.html_name }}"
+                     value="{{ val }}"
+                     {% if val in wizard.form.tipos_preferidos.value %}checked{% endif %}>
+              {{ label }}
+            </label>
+          {% endfor %}
+        </div>
+
+        <div class="field">
+          <label>Observações para a IA <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
+          <textarea class="ta" name="{{ wizard.form.observacoes_ia.html_name }}"
+                    placeholder="Ex: focar em interpretação de texto, evitar questões muito teóricas...">{{ wizard.form.observacoes_ia.value|default:'' }}</textarea>
+        </div>
+      {% endif %}
+
+      {# Navegação #}
+      <div style="display:flex;justify-content:{% if wizard.steps.prev %}space-between{% else %}flex-end{% endif %};margin-top:20px">
+        {% if wizard.steps.prev %}
+          <button type="submit" name="wizard_goto_step" value="{{ wizard.steps.prev }}" class="btn">
+            ← Voltar
+          </button>
+        {% endif %}
+        {% if wizard.steps.current == 'config_ia' %}
+          <button type="submit" class="btn btn-primary">Criar disciplina</button>
+        {% else %}
+          <button type="submit" class="btn btn-primary">Continuar →</button>
+        {% endif %}
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

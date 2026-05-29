@@ -1,0 +1,89 @@
+{% extends "app/base.html" %}
+{% block title %}{{ disciplina.nome }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplinas' %}" class="breadcrumb">← Disciplinas</a>
+        <div class="page-title">{{ disciplina.nome }}</div>
+        <div class="page-sub">
+          {{ disciplina.get_nivel_display }}
+          {% if disciplina.serie_ano %} · {{ disciplina.serie_ano }}{% endif %}
+          {% if disciplina.num_alunos_estimado %} · {{ disciplina.num_alunos_estimado }} alunos{% endif %}
+          · <span class="badge badge-green" style="font-size:9.5px;padding:1px 7px">Ativo</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'disciplina_editar' disciplina.id %}" class="btn">Editar</a>
+        <button class="btn" disabled title="Disponível no Sprint 2">Gerar questões</button>
+        {% if request.user.trabalha_com_idiomas %}
+          <button class="btn" disabled title="Disponível no Sprint 3">Gerar listening</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">
+
+        {# Card: Ementas #}
+        <div class="card">
+          <div class="card-title">Ementas carregadas</div>
+          <div class="empty-state" style="padding:20px">
+            <div class="empty-state-icon">📄</div>
+            <div class="empty-state-title">Nenhuma ementa adicionada</div>
+            <div class="empty-state-sub">Faça upload da ementa para começar a gerar questões para esta disciplina.</div>
+          </div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:4px" disabled title="Disponível no Sprint 2">
+            + Upload de ementa
+          </button>
+        </div>
+
+        {# Card: Visão geral #}
+        <div class="card">
+          <div class="card-title">Visão geral</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="metric-box">
+              <div class="metric-val">0</div>
+              <div class="metric-lbl">Questões no banco</div>
+            </div>
+            <div class="metric-box">
+              <div class="metric-val">0</div>
+              <div class="metric-lbl">Áudios de listening</div>
+            </div>
+          </div>
+          {% if disciplina.config_ia %}
+            <div style="margin-top:14px;font-size:11.5px;color:var(--ink-60)">
+              <strong style="color:var(--ink)">Preferências de IA:</strong>
+              dificuldade {{ disciplina.config_ia.dificuldade_padrao|default:"mix" }}
+              {% if disciplina.config_ia.observacoes_ia %}
+                · "{{ disciplina.config_ia.observacoes_ia|truncatechars:60 }}"
+              {% endif %}
+            </div>
+          {% endif %}
+        </div>
+      </div>
+
+      {# Card: Questões recentes #}
+      <div class="card">
+        <div class="card-title">Questões recentes desta disciplina</div>
+        <div class="empty-state">
+          <div class="empty-state-icon">✨</div>
+          <div class="empty-state-title">Nenhuma questão gerada ainda</div>
+          <div class="empty-state-sub">Adicione uma ementa e clique em "Gerar questões" para criar seu banco de questões com IA.</div>
+        </div>
+      </div>
+
+      {# Zona de perigo #}
+      <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--ink-10)">
+        <a href="{% url 'disciplina_excluir' disciplina.id %}" class="btn btn-danger btn-sm">
+          Excluir disciplina
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

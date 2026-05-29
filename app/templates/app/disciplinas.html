@@ -1,0 +1,61 @@
+{% extends "app/base.html" %}
+{% block title %}Disciplinas — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Disciplinas</div>
+        <div class="page-sub">{{ disciplinas|length }} disciplina{{ disciplinas|length|pluralize:",s" }} ativa{{ disciplinas|length|pluralize:",s" }}</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'disciplina_nova' %}" class="btn btn-primary">+ Nova disciplina</a>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if disciplinas %}
+        <div class="disciplina-grid">
+          {% for d in disciplinas %}
+            <a href="{% url 'disciplina_detalhe' d.id %}" class="disciplina-card">
+              <div class="card-header">
+                <div>
+                  <div class="t-name">{{ d.nome }}</div>
+                  <div class="t-meta">
+                    {{ d.get_nivel_display }}{% if d.serie_ano %} · {{ d.serie_ano }}{% endif %}{% if d.num_alunos_estimado %} · {{ d.num_alunos_estimado }} alunos{% endif %}
+                  </div>
+                </div>
+                <span class="badge badge-green">Ativo</span>
+              </div>
+              <div style="display:flex;gap:5px;margin-top:10px">
+                <span class="badge badge-amber">Adicionar ementa</span>
+              </div>
+            </a>
+          {% endfor %}
+
+          <a href="{% url 'disciplina_nova' %}" class="disciplina-card-add">
+            <div style="font-size:22px;opacity:.3">+</div>
+            <div style="font-size:12.5px;font-weight:500">Nova disciplina</div>
+          </a>
+        </div>
+
+      {% else %}
+        {# Empty state — sem nenhuma disciplina (não deve ocorrer após cadastro) #}
+        <div style="display:flex;align-items:center;justify-content:center;min-height:400px">
+          <div class="empty-state">
+            <div class="empty-state-icon">📚</div>
+            <div class="empty-state-title">Nenhuma disciplina criada</div>
+            <div class="empty-state-sub">Crie sua primeira disciplina para começar a gerar questões com IA.</div>
+            <a href="{% url 'disciplina_nova' %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">
+              + Criar disciplina
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
