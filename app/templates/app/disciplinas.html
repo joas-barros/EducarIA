@@ -20,7 +20,8 @@
       {% if disciplinas %}
         <div class="disciplina-grid">
           {% for d in disciplinas %}
-            <a href="{% url 'disciplina_detalhe' d.id %}" class="disciplina-card">
+            <a href="{% url 'disciplina_detalhe' d.id %}"
+               class="disciplina-card {% if not d.num_ementas %}sem-ementa{% endif %}">
               <div class="card-header">
                 <div>
                   <div class="t-name">{{ d.nome }}</div>
@@ -31,7 +32,11 @@
                 <span class="badge badge-green">Ativo</span>
               </div>
               <div style="display:flex;gap:5px;margin-top:10px">
-                <span class="badge badge-amber">Adicionar ementa</span>
+                {% if d.num_ementas %}
+                  <span class="badge badge-gray">{{ d.num_ementas }} ementa{{ d.num_ementas|pluralize:",s" }}</span>
+                {% else %}
+                  <span class="badge badge-amber">Adicionar ementa</span>
+                {% endif %}
               </div>
             </a>
           {% endfor %}

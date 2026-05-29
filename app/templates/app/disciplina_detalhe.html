@@ -31,15 +31,52 @@
 
         {# Card: Ementas #}
         <div class="card">
-          <div class="card-title">Ementas carregadas</div>
-          <div class="empty-state" style="padding:20px">
-            <div class="empty-state-icon">📄</div>
-            <div class="empty-state-title">Nenhuma ementa adicionada</div>
-            <div class="empty-state-sub">Faça upload da ementa para começar a gerar questões para esta disciplina.</div>
+          <div class="card-header" style="margin-bottom:{% if ementas %}12px{% else %}0{% endif %}">
+            <div class="card-title" style="margin-bottom:0">Ementas carregadas</div>
+            <a href="{% url 'ementa_nova' disciplina.id %}" class="btn btn-ghost btn-sm">+ Adicionar</a>
           </div>
-          <button class="btn btn-ghost btn-sm" style="margin-top:4px" disabled title="Disponível no Sprint 2">
-            + Upload de ementa
-          </button>
+
+          {% if ementas %}
+            {% for ementa in ementas %}
+              <div class="ementa-item">
+                <div class="ementa-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5">
+                    <rect x="2" y="1" width="12" height="14" rx="1.5"/>
+                    <path d="M5 5h6M5 8h6M5 11h4"/>
+                  </svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    {{ ementa.titulo }}
+                  </div>
+                  <div style="font-size:11px;color:var(--ink-60);margin-top:1px">
+                    {% if ementa.tipo_fonte == 'arquivo' %}
+                      {{ ementa.arquivo_nome }} · {{ ementa.tamanho_legivel }} ·
+                    {% else %}
+                      Texto colado ·
+                    {% endif %}
+                    {{ ementa.criado_em|date:"d/m/Y" }}
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;margin-left:8px">
+                  <span class="badge badge-green">Ativa</span>
+                  {% if ementa.tipo_fonte == 'arquivo' and ementa.arquivo %}
+                    <a href="{{ ementa.arquivo.url }}" class="btn btn-ghost btn-sm"
+                       download title="Baixar arquivo" style="padding:4px 8px">↓</a>
+                  {% endif %}
+                  <a href="{% url 'ementa_excluir' disciplina.id ementa.id %}"
+                     class="btn btn-ghost btn-sm" style="padding:4px 8px;color:var(--red)"
+                     title="Excluir ementa">✕</a>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state" style="padding:20px 0">
+              <div class="empty-state-icon">📄</div>
+              <div class="empty-state-title">Nenhuma ementa adicionada</div>
+              <div class="empty-state-sub">Faça upload da ementa para começar a gerar questões.</div>
+            </div>
+          {% endif %}
         </div>
 
         {# Card: Visão geral #}
@@ -51,8 +88,8 @@
               <div class="metric-lbl">Questões no banco</div>
             </div>
             <div class="metric-box">
-              <div class="metric-val">0</div>
-              <div class="metric-lbl">Áudios de listening</div>
+              <div class="metric-val">{{ ementas|length }}</div>
+              <div class="metric-lbl">Ementa{{ ementas|length|pluralize:",s" }} carregada{{ ementas|length|pluralize:",s" }}</div>
             </div>
           </div>
           {% if disciplina.config_ia %}
@@ -73,7 +110,13 @@
         <div class="empty-state">
           <div class="empty-state-icon">✨</div>
           <div class="empty-state-title">Nenhuma questão gerada ainda</div>
-          <div class="empty-state-sub">Adicione uma ementa e clique em "Gerar questões" para criar seu banco de questões com IA.</div>
+          <div class="empty-state-sub">
+            {% if ementas %}
+              Clique em "Gerar questões" para criar seu banco de questões com IA.
+            {% else %}
+              Adicione uma ementa e clique em "Gerar questões" para criar seu banco de questões com IA.
+            {% endif %}
+          </div>
         </div>
       </div>
 
