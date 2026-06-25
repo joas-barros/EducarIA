@@ -84,7 +84,7 @@
         </div>
       </div>
       <div class="topbar-right">
-        <a href="?pdf=1&gabarito=0" id="btn-pdf" class="btn btn-primary">Exportar como PDF</a>
+        <button onclick="openPdfModal()" class="btn btn-primary">Exportar como PDF</button>
         <a href="?copiar=1&gabarito=0" id="btn-copiar" class="btn">Copiar texto</a>
         <a href="{% url 'prova_excluir' prova.id %}" class="btn btn-danger" style="border-color: #e8a8a8; color: var(--red);">Excluir</a>
       </div>
@@ -243,16 +243,34 @@
   </div>
 </div>
 
+<!-- Modal de Exportação de PDF -->
+<div id="pdf-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:999; align-items:center; justify-content:center">
+  <div class="card" style="width: 100%; max-width: 480px; padding: 24px; display: flex; flex-direction: column; gap: 16px; box-shadow: var(--shadow-md)">
+    <div style="font-size: 15px; font-weight: 600; color: var(--ink)">Exportar prova como PDF</div>
+    
+    <div class="field" style="margin-bottom:0">
+      <label for="pdf-filename-input" style="font-size: 12px; font-weight: 600; color: var(--ink-60)">Nome do arquivo PDF</label>
+      <input type="text" id="pdf-filename-input" class="inp" value="{{ prova.titulo }}">
+    </div>
+    
+    <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px">
+      <button onclick="closePdfModal()" class="btn">Cancelar</button>
+      <button onclick="confirmPdfDownload()" class="btn btn-primary">Exportar PDF</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  let activeTab = 'prova';
+
   function switchTab(tab) {
-    // Switch tab buttons styling
+    activeTab = tab;
     const btnProva = document.getElementById('tab-btn-prova');
     const btnGabarito = document.getElementById('tab-btn-gabarito');
     const contentProva = document.getElementById('content-prova');
     const contentGabarito = document.getElementById('content-gabarito');
     
     const btnCopiar = document.getElementById('btn-copiar');
-    const btnPdf = document.getElementById('btn-pdf');
 
     if (tab === 'prova') {
       btnProva.classList.add('active');
@@ -262,9 +280,8 @@
       contentGabarito.style.display = 'none';
       contentGabarito.classList.remove('active');
       
-      // Update href attributes for copying/PDF download of student version
+      // Update href attributes for copying student version
       btnCopiar.href = '?copiar=1&gabarito=0';
-      btnPdf.href = '?pdf=1&gabarito=0';
     } else {
       btnGabarito.classList.add('active');
       btnProva.classList.remove('active');
@@ -273,10 +290,42 @@
       contentProva.style.display = 'none';
       contentProva.classList.remove('active');
       
-      // Update href attributes for copying/PDF download of teacher version with answer key
+      // Update href attributes for copying teacher version with answer key
       btnCopiar.href = '?copiar=1&gabarito=1';
-      btnPdf.href = '?pdf=1&gabarito=1';
     }
+  }
+
+  function openPdfModal() {
+    const modal = document.getElementById('pdf-modal');
+    const input = document.getElementById('pdf-filename-input');
+    
+    if (activeTab === 'prova') {
+      input.value = "{{ prova.titulo }}";
+    } else {
+      input.value = "Gabarito - {{ prova.titulo }}";
+    }
+    
+    modal.style.display = 'flex';
+    input.focus();
+    input.select();
+  }
+
+  function closePdfModal() {
+    document.getElementById('pdf-modal').style.display = 'none';
+  }
+
+  function confirmPdfDownload() {
+    const filename = document.getElementById('pdf-filename-input').value.trim();
+    if (!filename) {
+      alert('Por favor, informe o nome do arquivo.');
+      return;
+    }
+    
+    const gabaritoParam = activeTab === 'prova' ? '0' : '1';
+    const downloadUrl = `?pdf=1&gabarito=${gabaritoParam}&filename=${encodeURIComponent(filename)}`;
+    
+    closePdfModal();
+    window.location.href = downloadUrl;
   }
 </script>
 {% endblock %}

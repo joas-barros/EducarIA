@@ -641,8 +641,15 @@ def prova_detalhe(request, pk):
         
         if not pdf.err:
             response = HttpResponse(result.getvalue(), content_type='application/pdf')
-            suffix = "gabarito" if com_gabarito else "prova"
-            filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.pdf"
+            custom_filename = request.GET.get('filename')
+            if custom_filename:
+                import re
+                clean_filename = re.sub(r'[\\/*?:"<>|]', "", custom_filename).strip()
+                filename = f"{clean_filename}.pdf"
+            else:
+                suffix = "gabarito" if com_gabarito else "prova"
+                filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.pdf"
+            
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
         else:
