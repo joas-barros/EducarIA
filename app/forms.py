@@ -1,5 +1,11 @@
+import re
+
 from django import forms
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+
+from .models import Disciplina, Ementa, Questao
+from .services.questoes import validar_dados_questao
 
 Professor = get_user_model()
 
@@ -237,3 +243,271 @@ class DisciplinaEditForm(forms.Form):
         widget=forms.Textarea(attrs={'rows': 3}),
         label='Observações para a IA (opcional)',
     )
+
+
+class QuestaoBaseForm(forms.Form):
+    campos_dados = []
+
+    disciplina = forms.ModelChoiceField(
+        queryset=Disciplina.objects.none(),
+        label='Disciplina',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    ementa = forms.ModelChoiceField(
+        queryset=Ementa.objects.none(),
+        required=False,
+        label='Ementa de origem (opcional)',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    tipo = forms.ChoiceField(
+        choices=Questao.TIPO_CHOICES,
+        label='Tipo',
+        widget=forms.Select(attrs={'class': 'sel', 'data-role': 'tipo-selector'}),
+    )
+    dificuldade = forms.ChoiceField(
+        choices=Questao.DIFICULDADE_CHOICES,
+        label='Dificuldade',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    enunciado = forms.CharField(
+        label='Enunciado',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 4}),
+    )
+
+    def __init__(self, *args, professor=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.professor = professor
+        if professor is not None:
+            self.fields['disciplina'].queryset = Disciplina.objects.filter(professor=professor)
+            self.fields['ementa'].queryset = Ementa.objects.filter(disciplina__professor=professor)
+
+    def clean(self):
+        cleaned = super().clean()
+        disciplina = cleaned.get('disciplina')
+        ementa = cleaned.get('ementa')
+        tipo = cleaned.get('tipo')
+
+        if disciplina and ementa and ementa.disciplina_id != disciplina.id:
+            self.add_error('ementa', 'Ementa não pertence à disciplina selecionada.')
+
+        if tipo and not any(self.errors.get(campo) for campo in self.campos_dados):
+            try:
+                validar_dados_questao(tipo, self.montar_dados())
+            except ValidationError as exc:
+                self.add_error(None, exc)
+
+        return cleaned
+
+    def montar_dados(self):
+        raise NotImplementedError
+
+
+class QuestaoMultiplaEscolhaForm(QuestaoBaseForm):
+    campos_dados = [
+        'alternativa_a',
+        'alternativa_b',
+        'alternativa_c',
+        'alternativa_d',
+        'gabarito',
+        'justificativa',
+    ]
+
+    alternativa_a = forms.CharField(
+        label='Alternativa A',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 2}),
+    )
+    alternativa_b = forms.CharField(
+        label='Alternativa B',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 2}),
+    )
+    alternativa_c = forms.CharField(
+        label='Alternativa C',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 2}),
+    )
+    alternativa_d = forms.CharField(
+        label='Alternativa D',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 2}),
+    )
+    gabarito = forms.ChoiceField(
+        choices=[('A', 'A'), ('B', 'B'), ('C', 'C'), ('D', 'D')],
+        label='Alternativa correta',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    justificativa = forms.CharField(
+        required=False,
+        label='Justificativa (opcional)',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 3}),
+    )
+
+    def montar_dados(self):
+        dados = {
+            'alternativas': [
+                {'letra': 'A', 'texto': self.cleaned_data.get('alternativa_a', '')},
+                {'letra': 'B', 'texto': self.cleaned_data.get('alternativa_b', '')},
+                {'letra': 'C', 'texto': self.cleaned_data.get('alternativa_c', '')},
+                {'letra': 'D', 'texto': self.cleaned_data.get('alternativa_d', '')},
+            ],
+            'gabarito': self.cleaned_data.get('gabarito'),
+        }
+        justificativa = self.cleaned_data.get('justificativa')
+        if justificativa:
+            dados['justificativa'] = justificativa
+        return dados
+
+
+class QuestaoVerdadeiroFalsoForm(QuestaoBaseForm):
+    campos_dados = ['resposta', 'justificativa']
+
+    resposta = forms.ChoiceField(
+        choices=[('V', 'Verdadeiro'), ('F', 'Falso')],
+        label='Resposta correta',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    justificativa = forms.CharField(
+        required=False,
+        label='Justificativa (opcional)',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 3}),
+    )
+
+    def montar_dados(self):
+        dados = {'resposta': self.cleaned_data.get('resposta')}
+        justificativa = self.cleaned_data.get('justificativa')
+        if justificativa:
+            dados['justificativa'] = justificativa
+        return dados
+
+
+class QuestaoDissertativaForm(QuestaoBaseForm):
+    campos_dados = ['resposta_esperada']
+
+    resposta_esperada = forms.CharField(
+        label='Resposta esperada',
+        widget=forms.Textarea(attrs={'class': 'ta', 'rows': 6}),
+    )
+
+    def montar_dados(self):
+        return {'resposta_esperada': self.cleaned_data.get('resposta_esperada', '')}
+
+
+class QuestaoLacunasForm(QuestaoBaseForm):
+    campos_dados = ['texto_com_lacunas', 'respostas_lacunas']
+
+    texto_com_lacunas = forms.CharField(
+        label='Texto com lacunas',
+        widget=forms.Textarea(attrs={
+            'class': 'ta',
+            'rows': 5,
+            'placeholder': 'Ex: A fotossíntese ocorre nos ___ e libera ___.',
+        }),
+    )
+    respostas_lacunas = forms.CharField(
+        label='Respostas das lacunas',
+        widget=forms.Textarea(attrs={
+            'class': 'ta',
+            'rows': 4,
+            'placeholder': 'Uma resposta por linha. Ex:\n1. cloroplastos\n2. oxigênio',
+        }),
+    )
+
+    def clean_texto_com_lacunas(self):
+        texto = self.cleaned_data['texto_com_lacunas']
+        if '___' not in texto:
+            raise forms.ValidationError('Use ___ para indicar cada lacuna no texto.')
+        return texto
+
+    def clean_respostas_lacunas(self):
+        respostas = self._respostas_limpas(self.cleaned_data['respostas_lacunas'])
+        if not respostas:
+            raise forms.ValidationError('Informe pelo menos uma resposta.')
+        return '\n'.join(respostas)
+
+    def clean(self):
+        cleaned = super().clean()
+        texto = cleaned.get('texto_com_lacunas')
+        respostas = cleaned.get('respostas_lacunas')
+        if texto and respostas:
+            total_lacunas = texto.count('___')
+            total_respostas = len(self._respostas_limpas(respostas))
+            if total_lacunas != total_respostas:
+                self.add_error(
+                    'respostas_lacunas',
+                    f'Informe {total_lacunas} resposta(s), uma para cada lacuna.',
+                )
+        return cleaned
+
+    def montar_dados(self):
+        respostas = [
+            {'posicao': index, 'palavra': palavra}
+            for index, palavra in enumerate(
+                self._respostas_limpas(self.cleaned_data.get('respostas_lacunas', '')),
+                start=1,
+            )
+        ]
+        return {
+            'texto_com_lacunas': self.cleaned_data.get('texto_com_lacunas', ''),
+            'respostas': respostas,
+        }
+
+    @staticmethod
+    def _respostas_limpas(valor):
+        respostas = []
+        for linha in (valor or '').splitlines():
+            palavra = re.sub(r'^\d+[\).:-]?\s*', '', linha).strip()
+            if palavra:
+                respostas.append(palavra)
+        return respostas
+
+
+QUESTAO_FORMS_POR_TIPO = {
+    Questao.TIPO_MULTIPLA_ESCOLHA: QuestaoMultiplaEscolhaForm,
+    Questao.TIPO_VERDADEIRO_FALSO: QuestaoVerdadeiroFalsoForm,
+    Questao.TIPO_DISSERTATIVA: QuestaoDissertativaForm,
+    Questao.TIPO_LACUNAS: QuestaoLacunasForm,
+}
+
+
+def get_questao_form_class(tipo):
+    return QUESTAO_FORMS_POR_TIPO.get(tipo, QuestaoDissertativaForm)
+
+
+def initial_questao_form(questao):
+    initial = {
+        'disciplina': questao.disciplina_id,
+        'ementa': questao.ementa_id,
+        'tipo': questao.tipo,
+        'dificuldade': questao.dificuldade,
+        'enunciado': questao.enunciado,
+    }
+    dados = questao.dados or {}
+
+    if questao.tipo == Questao.TIPO_MULTIPLA_ESCOLHA:
+        alternativas = {
+            item.get('letra'): item.get('texto', '')
+            for item in dados.get('alternativas', [])
+        }
+        initial.update({
+            'alternativa_a': alternativas.get('A', ''),
+            'alternativa_b': alternativas.get('B', ''),
+            'alternativa_c': alternativas.get('C', ''),
+            'alternativa_d': alternativas.get('D', ''),
+            'gabarito': dados.get('gabarito', 'A'),
+            'justificativa': dados.get('justificativa', ''),
+        })
+    elif questao.tipo == Questao.TIPO_VERDADEIRO_FALSO:
+        initial.update({
+            'resposta': dados.get('resposta', 'V'),
+            'justificativa': dados.get('justificativa', ''),
+        })
+    elif questao.tipo == Questao.TIPO_DISSERTATIVA:
+        initial['resposta_esperada'] = dados.get('resposta_esperada', '')
+    elif questao.tipo == Questao.TIPO_LACUNAS:
+        respostas = '\n'.join(
+            f"{item.get('posicao')}. {item.get('palavra')}"
+            for item in dados.get('respostas', [])
+        )
+        initial.update({
+            'texto_com_lacunas': dados.get('texto_com_lacunas', ''),
+            'respostas_lacunas': respostas,
+        })
+
+    return initial

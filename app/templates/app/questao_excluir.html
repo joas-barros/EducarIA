@@ -1,0 +1,42 @@
+{% extends "app/base.html" %}
+{% block title %}Excluir questão — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'questao_detalhe' questao.id %}" class="breadcrumb">← Questão</a>
+        <div class="page-title">Excluir questão</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:560px">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px">
+            Excluir esta questão?
+          </div>
+          <div style="font-size:13px;color:var(--ink-60);line-height:1.6;margin-bottom:16px">
+            Esta ação remove a questão do Banco de Questões. Ela não aparecerá em filtros, cópia ou avaliações futuras.
+          </div>
+
+          <div style="background:var(--paper);border-radius:var(--r-md);padding:14px;margin-bottom:18px;font-size:12.5px;line-height:1.6">
+            {{ questao.enunciado|truncatechars:180 }}
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <a href="{% url 'questao_detalhe' questao.id %}" class="btn">Cancelar</a>
+              <button type="submit" class="btn btn-danger">Confirmar exclusão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

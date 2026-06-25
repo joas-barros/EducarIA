@@ -1,18 +1,26 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count
+from django.db.models import Count, Q
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 from formtools.wizard.views import SessionWizardView
 
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
-    EmentaForm,
+    EmentaForm, get_questao_form_class, initial_questao_form,
 )
-from .models import Disciplina, Ementa
+from .models import Disciplina, Ementa, LoteGeracaoQuestao, Questao
+from .services.questoes import (
+    aprovar_questao,
+    aprovar_todas_questoes,
+    editar_e_aprovar_questao,
+    formatar_questoes_para_copia,
+    linhas_dados_questao,
+    rejeitar_questao,
+)
 
 Professor = get_user_model()
 
@@ -132,7 +140,17 @@ class DisciplinaCreateView(LoginRequiredMixin, SessionWizardView):
 
 @login_required
 def disciplinas_list(request):
-    disciplinas = request.user.disciplinas.annotate(num_ementas=Count('ementas'))
+    disciplinas = request.user.disciplinas.annotate(
+        num_ementas=Count('ementas', distinct=True),
+        num_questoes=Count(
+            'questoes',
+            filter=Q(questoes__ativa=True, questoes__status__in=[
+                Questao.STATUS_APROVADA,
+                Questao.STATUS_EDITADA,
+            ]),
+            distinct=True,
+        ),
+    )
     return render(request, 'app/disciplinas.html', {'disciplinas': disciplinas})
 
 
@@ -140,9 +158,21 @@ def disciplinas_list(request):
 def disciplina_detalhe(request, pk):
     disciplina = get_object_or_404(Disciplina, id=pk, professor=request.user)
     ementas = disciplina.ementas.all()
+    questoes_recentes = (
+        disciplina.questoes
+        .filter(ativa=True, status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA])
+        .select_related('ementa')
+        .order_by('-criado_em')[:5]
+    )
+    num_questoes = disciplina.questoes.filter(
+        ativa=True,
+        status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA],
+    ).count()
     return render(request, 'app/disciplina_detalhe.html', {
         'disciplina': disciplina,
         'ementas': ementas,
+        'questoes_recentes': questoes_recentes,
+        'num_questoes': num_questoes,
     })
 
 
@@ -255,3 +285,245 @@ def ementa_excluir(request, disciplina_pk, pk):
         'ementa': ementa,
         'disciplina': disciplina,
     })
+
+
+# ------------------------------------------------------------------ Questões
+
+def _tipo_questao_requisicao(request, default=Questao.TIPO_DISSERTATIVA):
+    tipo = request.POST.get('tipo') if request.method == 'POST' else request.GET.get('tipo')
+    tipos_validos = {choice[0] for choice in Questao.TIPO_CHOICES}
+    return tipo if tipo in tipos_validos else default
+
+
+@login_required
+def questoes_list(request):
+    filtros = {
+        'disciplina': request.GET.get('disciplina', ''),
+        'ementa': request.GET.get('ementa', ''),
+        'tipo': request.GET.get('tipo', ''),
+        'dificuldade': request.GET.get('dificuldade', ''),
+        'status': request.GET.get('status', ''),
+        'q': request.GET.get('q', ''),
+    }
+
+    questoes = (
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .select_related('disciplina', 'ementa')
+    )
+
+    if filtros['disciplina']:
+        questoes = questoes.filter(disciplina_id=filtros['disciplina'])
+    if filtros['ementa']:
+        questoes = questoes.filter(ementa_id=filtros['ementa'])
+    if filtros['tipo']:
+        questoes = questoes.filter(tipo=filtros['tipo'])
+    if filtros['dificuldade']:
+        questoes = questoes.filter(dificuldade=filtros['dificuldade'])
+    if filtros['status']:
+        questoes = questoes.filter(status=filtros['status'])
+    if filtros['q']:
+        questoes = questoes.filter(enunciado__icontains=filtros['q'])
+
+    return render(request, 'app/questoes.html', {
+        'questoes': questoes,
+        'disciplinas': Disciplina.objects.filter(professor=request.user),
+        'ementas': Ementa.objects.filter(disciplina__professor=request.user),
+        'tipo_choices': Questao.TIPO_CHOICES,
+        'dificuldade_choices': Questao.DIFICULDADE_CHOICES,
+        'status_choices': [
+            (Questao.STATUS_APROVADA, 'Aprovada'),
+            (Questao.STATUS_EDITADA, 'Editada'),
+        ],
+        'filtros': filtros,
+    })
+
+
+@login_required
+def questao_nova(request):
+    tipo = _tipo_questao_requisicao(request)
+    form_class = get_questao_form_class(tipo)
+    initial = {
+        'tipo': tipo,
+        'dificuldade': Questao.DIFICULDADE_MEDIO,
+    }
+    disciplina_id = request.GET.get('disciplina')
+    if disciplina_id:
+        initial['disciplina'] = disciplina_id
+
+    if request.method == 'POST':
+        form = form_class(request.POST, professor=request.user)
+        if form.is_valid():
+            dados = form.cleaned_data
+            questao = Questao.objects.create(
+                disciplina=dados['disciplina'],
+                ementa=dados.get('ementa'),
+                tipo=dados['tipo'],
+                enunciado=dados['enunciado'],
+                dificuldade=dados['dificuldade'],
+                dados=form.montar_dados(),
+                status=Questao.STATUS_APROVADA,
+                origem=Questao.ORIGEM_MANUAL,
+            )
+            return redirect('questao_detalhe', pk=questao.id)
+    else:
+        form = form_class(professor=request.user, initial=initial)
+
+    return render(request, 'app/questao_form.html', {
+        'form': form,
+        'titulo': 'Nova questão',
+        'subtitulo': 'Cadastro manual direto no Banco de Questões.',
+    })
+
+
+@login_required
+def questao_detalhe(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.ativas().do_professor(request.user).select_related('disciplina', 'ementa'),
+        id=pk,
+    )
+    return render(request, 'app/questao_detalhe.html', {
+        'questao': questao,
+        'dados_linhas': linhas_dados_questao(questao),
+    })
+
+
+@login_required
+def questao_editar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.ativas().do_professor(request.user).select_related('disciplina', 'ementa', 'lote'),
+        id=pk,
+    )
+    status_anterior = questao.status
+    tipo = _tipo_questao_requisicao(request, default=questao.tipo)
+    form_class = get_questao_form_class(tipo)
+
+    if request.method == 'POST':
+        form = form_class(request.POST, professor=request.user)
+        if form.is_valid():
+            dados = form.cleaned_data
+            editar_e_aprovar_questao(
+                questao,
+                enunciado=dados['enunciado'],
+                tipo=dados['tipo'],
+                dificuldade=dados['dificuldade'],
+                dados=form.montar_dados(),
+            )
+            questao.disciplina = dados['disciplina']
+            questao.ementa = dados.get('ementa')
+            questao.save(update_fields=['disciplina', 'ementa', 'atualizado_em'])
+            if status_anterior == Questao.STATUS_GERADA and questao.lote_id:
+                return redirect('questoes_revisao_lote', pk=questao.lote_id)
+            return redirect('questao_detalhe', pk=questao.id)
+    else:
+        if tipo == questao.tipo:
+            initial = initial_questao_form(questao)
+        else:
+            initial = {
+                'disciplina': questao.disciplina_id,
+                'ementa': questao.ementa_id,
+                'tipo': tipo,
+                'dificuldade': questao.dificuldade,
+                'enunciado': questao.enunciado,
+            }
+        form = form_class(professor=request.user, initial=initial)
+
+    return render(request, 'app/questao_form.html', {
+        'form': form,
+        'titulo': 'Editar questão',
+        'subtitulo': 'Ao salvar, a questão fica com status editada.',
+        'questao': questao,
+    })
+
+
+@login_required
+def questao_excluir(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.banco().do_professor(request.user).select_related('disciplina'),
+        id=pk,
+    )
+
+    if request.method == 'POST':
+        questao.delete()
+        return redirect('questoes')
+
+    return render(request, 'app/questao_excluir.html', {'questao': questao})
+
+
+@login_required
+@require_POST
+def questoes_copiar(request):
+    ids = request.POST.getlist('questoes')
+    questoes = list(
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .filter(id__in=ids)
+        .select_related('disciplina', 'ementa')
+    )
+    texto = formatar_questoes_para_copia(questoes)
+    if request.POST.get('download') == '1':
+        return HttpResponse(texto, content_type='text/plain; charset=utf-8')
+    return render(request, 'app/questoes_copiar.html', {
+        'questoes': questoes,
+        'texto': texto,
+    })
+
+
+@login_required
+def questoes_revisao_lote(request, pk):
+    lote = get_object_or_404(
+        LoteGeracaoQuestao.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    questoes = list(lote.questoes.filter(
+        ativa=True,
+        status=Questao.STATUS_GERADA,
+    ).order_by('criado_em'))
+    for questao in questoes:
+        questao.dados_linhas = linhas_dados_questao(questao)
+    revisadas = lote.questoes.filter(
+        status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA],
+    ).count()
+
+    return render(request, 'app/questoes_revisao.html', {
+        'lote': lote,
+        'questoes': questoes,
+        'revisadas': revisadas,
+    })
+
+
+@login_required
+@require_POST
+def questoes_aprovar_todas(request, lote_pk):
+    lote = get_object_or_404(LoteGeracaoQuestao, id=lote_pk, professor=request.user)
+    aprovar_todas_questoes(lote)
+    return redirect('questoes_revisao_lote', pk=lote.id)
+
+
+@login_required
+@require_POST
+def questao_aprovar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.geradas().do_professor(request.user),
+        id=pk,
+    )
+    lote_id = questao.lote_id
+    aprovar_questao(questao)
+    if lote_id:
+        return redirect('questoes_revisao_lote', pk=lote_id)
+    return redirect('questoes')
+
+
+@login_required
+@require_POST
+def questao_rejeitar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.geradas().do_professor(request.user),
+        id=pk,
+    )
+    lote_id = questao.lote_id
+    rejeitar_questao(questao)
+    if lote_id:
+        return redirect('questoes_revisao_lote', pk=lote_id)
+    return redirect('questoes')

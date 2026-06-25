@@ -1,0 +1,98 @@
+{% extends "app/base.html" %}
+{% block title %}Revisão de questões — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' lote.disciplina.id %}" class="breadcrumb">← {{ lote.disciplina.nome }}</a>
+        <div class="page-title">Revisão de questões</div>
+        <div class="page-sub">
+          {{ lote.disciplina.nome }}
+          {% if lote.ementa %} · {{ lote.ementa.titulo }}{% endif %}
+          · {{ lote.criado_em|date:"d/m/Y H:i" }}
+        </div>
+      </div>
+      <div class="topbar-right">
+        {% if questoes %}
+          <form method="post" action="{% url 'questoes_aprovar_todas' lote.id %}">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Aprovar todas</button>
+          </form>
+        {% endif %}
+        <a href="{% url 'questoes' %}?disciplina={{ lote.disciplina.id }}" class="btn">Ver no banco</a>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="card" style="margin-bottom:14px">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+          <div class="metric-box">
+            <div class="metric-val">{{ lote.quantidade_recebida }}</div>
+            <div class="metric-lbl">Recebidas</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">{{ questoes|length }}</div>
+            <div class="metric-lbl">Pendentes</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val">{{ revisadas }}</div>
+            <div class="metric-lbl">Aprovadas/editadas</div>
+          </div>
+        </div>
+      </div>
+
+      {% if questoes %}
+        <div style="display:flex;flex-direction:column;gap:12px">
+          {% for q in questoes %}
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title" style="margin-bottom:4px">{{ q.get_tipo_display }}</div>
+                  <div style="font-size:15px;line-height:1.7;color:var(--ink)">{{ q.enunciado }}</div>
+                </div>
+                <span class="badge badge-amber">Gerada</span>
+              </div>
+
+              <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+                {% for linha in q.dados_linhas %}
+                  <div style="background:var(--paper);border-radius:var(--r-md);padding:10px">
+                    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-60);font-weight:700;margin-bottom:3px">{{ linha.rotulo }}</div>
+                    <div style="white-space:pre-wrap;font-size:13px;line-height:1.5;color:var(--ink)">{{ linha.valor }}</div>
+                  </div>
+                {% endfor %}
+              </div>
+
+              <div style="display:flex;gap:8px;justify-content:flex-end">
+                <form method="post" action="{% url 'questao_rejeitar' q.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm">Rejeitar</button>
+                </form>
+                <a href="{% url 'questao_editar' q.id %}" class="btn btn-sm">Editar e aprovar</a>
+                <form method="post" action="{% url 'questao_aprovar' q.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-primary btn-sm">Aprovar</button>
+                </form>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">✓</div>
+            <div class="empty-state-title">Lote revisado</div>
+            <div class="empty-state-sub">Não há questões geradas pendentes neste lote.</div>
+            <a href="{% url 'questoes' %}?disciplina={{ lote.disciplina.id }}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">
+              Ver no Banco de Questões
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

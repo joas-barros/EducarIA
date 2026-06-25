@@ -84,7 +84,7 @@
           <div class="card-title">Visão geral</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="metric-box">
-              <div class="metric-val">0</div>
+              <div class="metric-val">{{ num_questoes }}</div>
               <div class="metric-lbl">Questões no banco</div>
             </div>
             <div class="metric-box">
@@ -106,18 +106,53 @@
 
       {# Card: Questões recentes #}
       <div class="card">
-        <div class="card-title">Questões recentes desta disciplina</div>
-        <div class="empty-state">
-          <div class="empty-state-icon">✨</div>
-          <div class="empty-state-title">Nenhuma questão gerada ainda</div>
-          <div class="empty-state-sub">
-            {% if ementas %}
-              Clique em "Gerar questões" para criar seu banco de questões com IA.
-            {% else %}
-              Adicione uma ementa e clique em "Gerar questões" para criar seu banco de questões com IA.
-            {% endif %}
-          </div>
+        <div class="card-header">
+          <div class="card-title" style="margin-bottom:0">Questões recentes desta disciplina</div>
+          <a href="{% url 'questoes' %}?disciplina={{ disciplina.id }}" class="btn btn-ghost btn-sm">Ver todas</a>
         </div>
+
+        {% if questoes_recentes %}
+          <table>
+            <thead>
+              <tr>
+                <th>Enunciado</th>
+                <th>Tipo</th>
+                <th>Dificuldade</th>
+                <th>Status</th>
+                <th style="width:80px">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for questao in questoes_recentes %}
+                <tr>
+                  <td>{{ questao.enunciado|truncatechars:90 }}</td>
+                  <td><span class="badge badge-gray">{{ questao.get_tipo_display }}</span></td>
+                  <td>{{ questao.get_dificuldade_display }}</td>
+                  <td>
+                    {% if questao.status == 'aprovada' %}
+                      <span class="badge badge-green">Aprovada</span>
+                    {% else %}
+                      <span class="badge badge-blue">Editada</span>
+                    {% endif %}
+                  </td>
+                  <td><a href="{% url 'questao_detalhe' questao.id %}" class="btn btn-ghost btn-sm">Abrir</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-state-icon">?</div>
+            <div class="empty-state-title">Nenhuma questão gerada ainda</div>
+            <div class="empty-state-sub">
+              {% if ementas %}
+                Quando a API da IA cadastrar um lote, as questões aprovadas aparecerão aqui.
+              {% else %}
+                Adicione uma ementa para preparar a geração de questões com IA.
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       {# Zona de perigo #}

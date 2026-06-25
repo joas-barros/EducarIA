@@ -1,0 +1,39 @@
+{% extends "app/base.html" %}
+{% block title %}Copiar questões — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'questoes' %}" class="breadcrumb">← Banco de questões</a>
+        <div class="page-title">Copiar questões</div>
+        <div class="page-sub">{{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }} selecionada{{ questoes|length|pluralize:",s" }}</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:840px">
+        <div class="card">
+          {% if texto %}
+            <div class="field">
+              <label>Texto formatado</label>
+              <textarea class="ta" rows="18" readonly>{{ texto }}</textarea>
+            </div>
+          {% else %}
+            <div class="empty-state">
+              <div class="empty-state-title">Nenhuma questão selecionada</div>
+              <div class="empty-state-sub">Volte ao banco e marque uma ou mais questões para copiar.</div>
+            </div>
+          {% endif %}
+          <div style="display:flex;justify-content:flex-end">
+            <a href="{% url 'questoes' %}" class="btn">Voltar ao banco</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
