@@ -44,6 +44,13 @@
       </svg>
       Banco de questões
     </a>
+    <a href="{% url 'provas' %}" class="sb-item {% if active_page == 'provas' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 2h10l2 2v10H3V2z"/>
+        <path d="M3 5h12M6 8h4M6 11h4"/>
+      </svg>
+      Minhas provas
+    </a>
   </div>
   <div class="sb-foot">
     <div class="sb-user">

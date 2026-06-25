@@ -27,4 +27,11 @@ urlpatterns = [
     path('questoes/<uuid:pk>/excluir/', views.questao_excluir, name='questao_excluir'),
     path('questoes/<uuid:pk>/aprovar/', views.questao_aprovar, name='questao_aprovar'),
     path('questoes/<uuid:pk>/rejeitar/', views.questao_rejeitar, name='questao_rejeitar'),
+
+    # Provas
+    path('provas/', views.provas_list, name='provas'),
+    path('provas/nova/', views.prova_nova, name='prova_nova'),
+    path('provas/<uuid:pk>/', views.prova_detalhe, name='prova_detalhe'),
+    path('provas/<uuid:pk>/excluir/', views.prova_excluir, name='prova_excluir'),
 ]
+

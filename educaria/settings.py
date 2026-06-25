@@ -1,10 +1,14 @@
-from pathlib import Path
-from getenv import env
 import os
-
+from pathlib import Path
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Load environment variables from .env
+load_dotenv(BASE_DIR / '.env')
+
+from getenv import env
 
 
 # Language code

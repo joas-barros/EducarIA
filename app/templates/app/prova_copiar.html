@@ -1,0 +1,60 @@
+{% extends "app/base.html" %}
+{% block title %}Copiar prova — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="provas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'prova_detalhe' prova.id %}" class="breadcrumb">← Detalhes da prova</a>
+        <div class="page-title">Copiar prova</div>
+        <div class="page-sub">{{ prova.titulo }} · {{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }}</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:840px">
+        <div class="card">
+          <div class="field">
+            <label style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px">
+              <span>Texto formatado pronto para copiar</span>
+              <button onclick="copiarTexto()" class="btn btn-primary btn-sm" id="btn-copiar-clipboard">Copiar para a área de transferência</button>
+            </label>
+            <textarea id="texto-prova" class="ta" rows="22" readonly style="width:100%; font-family: monospace; font-size:12px; line-height:1.6; padding:12px">{{ texto }}</textarea>
+          </div>
+          
+          <div style="display:flex; justify-content:flex-end; margin-top:16px">
+            <a href="{% url 'prova_detalhe' prova.id %}" class="btn">Voltar à prova</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function copiarTexto() {
+    const textEl = document.getElementById('texto-prova');
+    textEl.select();
+    textEl.setSelectionRange(0, 99999); // For mobile devices
+    
+    navigator.clipboard.writeText(textEl.value)
+      .then(() => {
+        const btn = document.getElementById('btn-copiar-clipboard');
+        const origText = btn.textContent;
+        btn.textContent = 'Copiado!';
+        btn.style.backgroundColor = 'var(--green-dark)';
+        setTimeout(() => {
+          btn.textContent = origText;
+          btn.style.backgroundColor = '';
+        }, 2000);
+      })
+      .catch(err => {
+        console.error('Falha ao copiar texto: ', err);
+        alert('Erro ao copiar texto. Selecione o campo e copie manualmente.');
+      });
+  }
+</script>
+{% endblock %}
