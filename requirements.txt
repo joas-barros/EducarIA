@@ -2,3 +2,7 @@ Django
 psycopg2
 django-getenv
 django-formtools
+google-generativeai
+google-cloud-texttospeech
+pdfplumber
+python-docx

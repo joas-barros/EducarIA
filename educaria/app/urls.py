@@ -16,18 +16,4 @@ urlpatterns = [
 
     path('disciplinas/<uuid:disciplina_pk>/ementas/nova/', views.ementa_nova, name='ementa_nova'),
     path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:pk>/excluir/', views.ementa_excluir, name='ementa_excluir'),
-
-    # ---------------------------------------------------------------- Listening
-    path('disciplinas/<uuid:disciplina_pk>/listening/',
-         views.listening_lista, name='listening_lista'),
-    path('disciplinas/<uuid:disciplina_pk>/listening/configurar/',
-         views.listening_configurar, name='listening_configurar'),
-    path('disciplinas/<uuid:disciplina_pk>/listening/<uuid:pk>/',
-         views.listening_detalhe, name='listening_detalhe'),
-    path('disciplinas/<uuid:disciplina_pk>/listening/<uuid:pk>/editar-roteiro/',
-         views.listening_editar_roteiro, name='listening_editar_roteiro'),
-    path('disciplinas/<uuid:disciplina_pk>/listening/<uuid:pk>/excluir/',
-         views.listening_excluir, name='listening_excluir'),
-    path('disciplinas/<uuid:disciplina_pk>/listening/<uuid:pk>/download/',
-         views.listening_download, name='listening_download'),
 ]

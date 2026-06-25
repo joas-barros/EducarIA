@@ -1,0 +1,92 @@
+{% extends "app/base.html" %}
+{% block title %}Listening — {{ disciplina.nome }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="listening" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="breadcrumb">← {{ disciplina.nome }}</a>
+        <div class="page-title">Exercícios de Listening</div>
+        <div class="page-sub">{{ exercicios|length }} exercício{{ exercicios|length|pluralize }} gerado{{ exercicios|length|pluralize }}</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'listening_configurar' disciplina.id %}" class="btn btn-primary">+ Gerar listening</a>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if exercicios %}
+        <div style="display:flex;flex-direction:column;gap:10px">
+          {% for ex in exercicios %}
+          <div class="card" style="display:flex;align-items:center;gap:16px">
+
+            {# Ícone de idioma #}
+            <div style="width:44px;height:44px;border-radius:var(--r-md);background:var(--green-light);
+                        display:flex;align-items:center;justify-content:center;flex-shrink:0;
+                        font-size:20px">
+              {{ ex.idioma|upper }}
+            </div>
+
+            {# Informações #}
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;color:var(--ink);
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {{ ex.get_idioma_display }} · {{ ex.get_nivel_display }} · {{ ex.get_voz_display }}
+              </div>
+              <div style="font-size:11.5px;color:var(--ink-60);margin-top:2px;
+                          white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                {% if ex.ementa %}Ementa: {{ ex.ementa.titulo }}{% elif ex.tema_livre %}{{ ex.tema_livre }}{% endif %}
+              </div>
+              <div style="font-size:11px;color:var(--ink-30);margin-top:2px">
+                Gerado em {{ ex.criado_em|date:"d/m/Y" }} às {{ ex.criado_em|time:"H:i" }}
+                {% if ex.duracao_legivel %} · {{ ex.duracao_legivel }}{% endif %}
+              </div>
+            </div>
+
+            {# Status áudio #}
+            {% if ex.tem_audio %}
+              <span class="badge badge-green">Áudio pronto</span>
+            {% else %}
+              <span class="badge badge-amber">Sem áudio</span>
+            {% endif %}
+
+            {# Ações #}
+            <div style="display:flex;gap:6px;flex-shrink:0">
+              <a href="{% url 'listening_detalhe' disciplina.id ex.id %}" class="btn btn-sm">Ver</a>
+              {% if ex.tem_audio %}
+                <a href="{% url 'listening_download' disciplina.id ex.id %}"
+                   class="btn btn-sm" title="Baixar MP3">↓ MP3</a>
+              {% endif %}
+              <form method="post" action="{% url 'listening_excluir' disciplina.id ex.id %}"
+                    style="display:inline"
+                    onsubmit="return confirm('Excluir este exercício?')">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm btn-danger">✕</button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">🎧</div>
+            <div class="empty-state-title">Nenhum exercício de listening gerado ainda</div>
+            <div class="empty-state-sub">
+              Clique em "Gerar listening" para criar um exercício com roteiro e áudio via IA.
+            </div>
+            <a href="{% url 'listening_configurar' disciplina.id %}"
+               class="btn btn-primary" style="margin-top:16px;display:inline-block">
+              + Gerar primeiro listening
+            </a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

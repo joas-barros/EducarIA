@@ -1,0 +1,156 @@
+{% extends "app/base.html" %}
+{% block title %}Criar conta — EducarIA{% endblock %}
+
+{% block body %}
+<div style="display:flex;align-items:center;justify-content:center;background:var(--paper);min-height:100vh;padding:40px 16px">
+  <div style="background:var(--white);border:1px solid var(--ink-10);border-radius:var(--r-xl);padding:36px 32px;width:480px;box-shadow:var(--shadow-md)">
+
+    <a href="{% url 'login' %}" style="font-size:12px;color:var(--ink-60);display:inline-block;margin-bottom:20px;text-decoration:none">
+      ← Voltar ao login
+    </a>
+
+    <div class="login-logo" style="font-size:22px;text-align:left;margin-bottom:4px">Educar<em>IA</em></div>
+    <div style="font-size:13px;color:var(--ink-60);margin-bottom:22px">Crie sua conta gratuita</div>
+
+    {# --- Indicador de steps --- #}
+    {% with current=wizard.steps.step1 %}
+    <div class="steps">
+      <div class="step-node">
+        <div class="step-circle {% if current == 1 %}active{% elif current > 1 %}done{% endif %}">
+          {% if current > 1 %}✓{% else %}1{% endif %}
+        </div>
+        <div class="step-label {% if current == 1 %}active{% elif current > 1 %}done{% endif %}">Dados pessoais</div>
+      </div>
+      <div class="step-line {% if current > 1 %}done{% endif %}"></div>
+      <div class="step-node">
+        <div class="step-circle {% if current == 2 %}active{% elif current > 2 %}done{% endif %}">
+          {% if current > 2 %}✓{% else %}2{% endif %}
+        </div>
+        <div class="step-label {% if current == 2 %}active{% elif current > 2 %}done{% endif %}">Perfil docente</div>
+      </div>
+      <div class="step-line {% if current > 2 %}done{% endif %}"></div>
+      <div class="step-node">
+        <div class="step-circle {% if current == 3 %}active{% endif %}">3</div>
+        <div class="step-label {% if current == 3 %}active{% endif %}">Acesso</div>
+      </div>
+    </div>
+    {% endwith %}
+
+    {# --- Formulário do step atual --- #}
+    <form method="post">
+      {% csrf_token %}
+      {{ wizard.management_form }}
+
+      {# STEP 1 — Dados pessoais #}
+      {% if wizard.steps.current == 'dados_pessoais' %}
+        <div class="row2">
+          <div class="field">
+            <label>Nome</label>
+            <input class="inp{% if wizard.form.nome.errors %} error{% endif %}"
+                   type="text" name="{{ wizard.form.nome.html_name }}"
+                   value="{{ wizard.form.nome.value|default:'' }}" autofocus>
+            {% for err in wizard.form.nome.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Sobrenome</label>
+            <input class="inp{% if wizard.form.sobrenome.errors %} error{% endif %}"
+                   type="text" name="{{ wizard.form.sobrenome.html_name }}"
+                   value="{{ wizard.form.sobrenome.value|default:'' }}">
+            {% for err in wizard.form.sobrenome.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="field">
+          <label>E-mail institucional</label>
+          <input class="inp{% if wizard.form.email.errors %} error{% endif %}"
+                 type="email" name="{{ wizard.form.email.html_name }}"
+                 value="{{ wizard.form.email.value|default:'' }}">
+          {% for err in wizard.form.email.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+
+      {# STEP 2 — Perfil docente #}
+      {% elif wizard.steps.current == 'perfil_docente' %}
+        <div class="row2">
+          <div class="field">
+            <label>Disciplina principal</label>
+            <select class="sel" name="{{ wizard.form.disciplina_principal.html_name }}">
+              {% for val, label in wizard.form.disciplina_principal.field.choices %}
+                <option value="{{ val }}"{% if wizard.form.disciplina_principal.value == val %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% for err in wizard.form.disciplina_principal.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+          <div class="field">
+            <label>Nível de ensino</label>
+            <select class="sel" name="{{ wizard.form.nivel_ensino.html_name }}">
+              {% for val, label in wizard.form.nivel_ensino.field.choices %}
+                <option value="{{ val }}"{% if wizard.form.nivel_ensino.value == val %} selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+            {% for err in wizard.form.nivel_ensino.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+          </div>
+        </div>
+        <div class="field">
+          <label>Você trabalha com idiomas?</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <label class="src-opt{% if wizard.form.trabalha_com_idiomas.value %} sel{% endif %}" style="flex:1;cursor:pointer">
+              <input type="radio" name="{{ wizard.form.trabalha_com_idiomas.html_name }}" value="True"
+                     {% if wizard.form.trabalha_com_idiomas.value %}checked{% endif %} style="display:none">
+              <div class="src-opt-title">Sim</div>
+              <div class="src-opt-sub">Inglês, espanhol...</div>
+            </label>
+            <label class="src-opt{% if not wizard.form.trabalha_com_idiomas.value %} sel{% endif %}" style="flex:1;cursor:pointer">
+              <input type="radio" name="{{ wizard.form.trabalha_com_idiomas.html_name }}" value=""
+                     {% if not wizard.form.trabalha_com_idiomas.value %}checked{% endif %} style="display:none">
+              <div class="src-opt-title">Não</div>
+              <div class="src-opt-sub">Outras disciplinas</div>
+            </label>
+          </div>
+        </div>
+
+      {# STEP 3 — Acesso #}
+      {% elif wizard.steps.current == 'acesso' %}
+        <div class="field">
+          <label>Senha</label>
+          <input class="inp{% if wizard.form.senha.errors %} error{% endif %}"
+                 type="password" name="{{ wizard.form.senha.html_name }}"
+                 placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+          {% for err in wizard.form.senha.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+        <div class="field">
+          <label>Confirmar senha</label>
+          <input class="inp{% if wizard.form.confirmar_senha.errors %} error{% endif %}"
+                 type="password" name="{{ wizard.form.confirmar_senha.html_name }}"
+                 placeholder="Repita a senha" autocomplete="new-password">
+          {% for err in wizard.form.confirmar_senha.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+        </div>
+        <label class="check-row">
+          <input type="checkbox" name="{{ wizard.form.aceite_lgpd.html_name }}"
+                 {% if wizard.form.aceite_lgpd.value %}checked{% endif %}>
+          Li e aceito os Termos de Uso e a Política de Privacidade (LGPD)
+        </label>
+        {% for err in wizard.form.aceite_lgpd.errors %}<div class="field-error" style="margin-top:2px">{{ err }}</div>{% endfor %}
+        <label class="check-row">
+          <input type="checkbox" name="{{ wizard.form.aceite_email.html_name }}"
+                 {% if wizard.form.aceite_email.value %}checked{% endif %}>
+          Quero receber dicas pedagógicas e novidades por e-mail
+        </label>
+      {% endif %}
+
+      {# --- Navegação --- #}
+      <div style="display:flex;justify-content:{% if wizard.steps.prev %}space-between{% else %}flex-end{% endif %};margin-top:20px">
+        {% if wizard.steps.prev %}
+          <button type="submit" name="wizard_goto_step" value="{{ wizard.steps.prev }}" class="btn">
+            ← Voltar
+          </button>
+        {% endif %}
+        {% if wizard.steps.current == 'acesso' %}
+          <button type="submit" class="btn btn-primary">Criar conta</button>
+        {% else %}
+          <button type="submit" class="btn btn-primary">Continuar →</button>
+        {% endif %}
+      </div>
+    </form>
+
+  </div>
+</div>
+{% endblock %}

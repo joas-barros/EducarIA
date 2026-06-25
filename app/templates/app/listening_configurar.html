@@ -1,0 +1,147 @@
+{% extends "app/base.html" %}
+{% block title %}Gerar Listening — {{ disciplina.nome }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="listening" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'listening_lista' disciplina.id %}" class="breadcrumb">← Listening</a>
+        <div class="page-title">Gerar exercício de listening</div>
+        <div class="page-sub">A IA gera o roteiro e o áudio com voz neural realista</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="display:grid;grid-template-columns:380px 1fr;gap:20px;align-items:start">
+
+        {# ---- Formulário de configuração ---- #}
+        <div class="card">
+          <div class="card-title">Configuração</div>
+
+          {% if erro_ia %}
+            <div style="background:var(--red-light);border:1px solid #f0c0c0;border-radius:var(--r-md);
+                        padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--red)">
+              {{ erro_ia }}
+            </div>
+          {% endif %}
+
+          <form method="post">
+            {% csrf_token %}
+
+            {# Ementa #}
+            <div class="field">
+              <label>{{ form.ementa.label }}</label>
+              {{ form.ementa }}
+              {% if form.ementa.errors %}
+                <div class="field-error">{{ form.ementa.errors.0 }}</div>
+              {% endif %}
+            </div>
+
+            {# Tema livre #}
+            <div class="field">
+              <label>{{ form.tema_livre.label }}</label>
+              {{ form.tema_livre }}
+              <div style="font-size:10.5px;color:var(--ink-30);margin-top:4px">
+                Usado quando não há ementa selecionada, ou para detalhar o conteúdo.
+              </div>
+            </div>
+
+            {# Idioma + Nível #}
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.idioma.label }}</label>
+                <select name="idioma" id="id_idioma" class="sel" onchange="filtrarVozes()">
+                  {% for val, lbl in form.fields.idioma.choices %}
+                    <option value="{{ val }}" {% if form.idioma.value == val %}selected{% endif %}>{{ lbl }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="field">
+                <label>{{ form.nivel.label }}</label>
+                {{ form.nivel }}
+              </div>
+            </div>
+
+            {# Voz #}
+            <div class="field">
+              <label>{{ form.voz.label }}</label>
+              <select name="voz" id="id_voz" class="sel">
+                {% for val, lbl in form.fields.voz.choices %}
+                  <option value="{{ val }}"
+                    data-idioma="{{ val|slice:':2' }}"
+                    {% if form.voz.value == val %}selected{% endif %}>
+                    {{ lbl }}
+                  </option>
+                {% endfor %}
+              </select>
+              <div style="font-size:10.5px;color:var(--ink-30);margin-top:4px">
+                Vozes neurais — qualidade de falante nativo
+              </div>
+            </div>
+
+            {% if form.non_field_errors %}
+              <div class="field-error" style="margin-bottom:12px">{{ form.non_field_errors.0 }}</div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary" style="width:100%;padding:11px;font-size:13px">
+              Gerar roteiro e áudio
+            </button>
+            <div style="font-size:11px;color:var(--ink-30);text-align:center;margin-top:8px">
+              Isso pode levar 10–30 segundos ☕
+            </div>
+          </form>
+        </div>
+
+        {# ---- Explicação do fluxo ---- #}
+        <div class="card" style="background:var(--ink);border-color:var(--ink)">
+          <div style="font-size:12px;font-weight:600;color:rgba(255,255,255,.4);
+                      text-transform:uppercase;letter-spacing:.6px;margin-bottom:20px">
+            Como funciona
+          </div>
+          <div style="display:flex;flex-direction:column;gap:18px">
+            {% for step, titulo, desc in steps %}
+            <div style="display:flex;gap:14px">
+              <div style="width:28px;height:28px;border-radius:50%;background:var(--green);
+                          display:flex;align-items:center;justify-content:center;
+                          font-size:11px;font-weight:700;color:#fff;flex-shrink:0">
+                {{ forloop.counter }}
+              </div>
+              <div>
+                <div style="font-size:13px;font-weight:500;color:#fff;margin-bottom:3px">{{ titulo }}</div>
+                <div style="font-size:12px;color:rgba(255,255,255,.45);line-height:1.6">{{ desc }}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// Filtra as opções de voz de acordo com o idioma selecionado
+function filtrarVozes() {
+  const idioma = document.getElementById('id_idioma').value;
+  const sel = document.getElementById('id_voz');
+  let primeiraSelecionavel = null;
+
+  Array.from(sel.options).forEach(opt => {
+    const pertence = opt.dataset.idioma === idioma;
+    opt.hidden = !pertence;
+    opt.disabled = !pertence;
+    if (pertence && !primeiraSelecionavel) primeiraSelecionavel = opt;
+  });
+
+  if (primeiraSelecionavel && sel.selectedOptions[0].disabled) {
+    sel.value = primeiraSelecionavel.value;
+  }
+}
+
+// Executa na carga para sincronizar com o valor inicial
+document.addEventListener('DOMContentLoaded', filtrarVozes);
+</script>
+{% endblock %}

@@ -125,9 +125,3 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
-
-# ------------------------------------------------------------------ IA
-# Adicione no seu .env: GEMINI_API_KEY=... e GOOGLE_APPLICATION_CREDENTIALS=...
-GEMINI_API_KEY = env('GEMINI_API_KEY', default='')
-# Cloud TTS usa autenticação via arquivo de credenciais JSON do GCP:
-# GOOGLE_APPLICATION_CREDENTIALS=/caminho/para/credenciais.json

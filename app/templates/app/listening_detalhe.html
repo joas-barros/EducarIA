@@ -1,0 +1,238 @@
+{% extends "app/base.html" %}
+{% block title %}Listening — {{ exercicio.get_idioma_display }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="listening" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'listening_lista' disciplina.id %}" class="breadcrumb">← Listening</a>
+        <div class="page-title">
+          {{ exercicio.get_idioma_display }} · {{ exercicio.get_nivel_display }} · {{ exercicio.get_voz_display }}
+        </div>
+        <div class="page-sub">Gerado em {{ exercicio.criado_em|date:"d/m/Y" }} às {{ exercicio.criado_em|time:"H:i" }}</div>
+      </div>
+      <div class="topbar-right">
+        {% if exercicio.tem_audio %}
+          <a href="{% url 'listening_download' disciplina.id exercicio.id %}"
+             class="btn">↓ Download MP3</a>
+        {% endif %}
+        <form method="post" action="{% url 'listening_excluir' disciplina.id exercicio.id %}"
+              style="display:inline"
+              onsubmit="return confirm('Excluir este exercício de listening?')">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-danger btn-sm">Excluir</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if erro_ia %}
+        <div style="background:var(--red-light);border:1px solid #f0c0c0;border-radius:var(--r-md);
+                    padding:12px 14px;margin-bottom:16px;font-size:12.5px;color:var(--red)">
+          {{ erro_ia }}
+        </div>
+      {% endif %}
+
+      <div style="display:grid;grid-template-columns:1fr 380px;gap:20px;align-items:start">
+
+        {# ---- Coluna esquerda: roteiro e edição ---- #}
+        <div>
+
+          {# Player de áudio #}
+          {% if exercicio.tem_audio %}
+          <div class="card" style="background:var(--ink);border-color:var(--ink);margin-bottom:14px">
+            <div style="display:flex;align-items:center;gap:14px">
+              <button id="play-btn" onclick="togglePlay()"
+                      style="width:44px;height:44px;border-radius:50%;background:var(--green-mid);
+                             border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;
+                             flex-shrink:0;transition:background .15s"
+                      onmouseover="this.style.background='var(--green)'"
+                      onmouseout="this.style.background='var(--green-mid)'">
+                <svg id="play-icon" width="14" height="16" viewBox="0 0 14 16" fill="white">
+                  <path d="M2 1l10 7-10 7V1z"/>
+                </svg>
+              </button>
+
+              <div style="flex:1">
+                <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:6px">
+                  {{ exercicio.get_voz_display }}
+                  {% if exercicio.duracao_legivel %} · {{ exercicio.duracao_legivel }}{% endif %}
+                </div>
+                {# Barra de progresso do áudio #}
+                <div id="progress-container"
+                     style="height:4px;background:rgba(255,255,255,.15);border-radius:2px;cursor:pointer"
+                     onclick="seek(event)">
+                  <div id="progress-fill"
+                       style="height:100%;background:var(--green-mid);border-radius:2px;width:0%;transition:width .2s"></div>
+                </div>
+                <div style="display:flex;justify-content:space-between;margin-top:4px">
+                  <span id="time-current" style="font-size:10px;color:rgba(255,255,255,.4)">0:00</span>
+                  <span id="time-total" style="font-size:10px;color:rgba(255,255,255,.4)">
+                    {{ exercicio.duracao_legivel }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <audio id="audio-el" src="{{ exercicio.audio.url }}"
+                   ontimeupdate="updateProgress()" onended="onAudioEnd()"></audio>
+          </div>
+          {% else %}
+          <div class="card" style="margin-bottom:14px">
+            <div class="empty-state" style="padding:20px 0">
+              <div class="empty-state-icon">⚠️</div>
+              <div class="empty-state-title">Áudio ainda não gerado</div>
+              <div class="empty-state-sub">Salve o roteiro abaixo para gerar o áudio.</div>
+            </div>
+          </div>
+          {% endif %}
+
+          {# Roteiro + edição #}
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title" style="margin:0">Roteiro</div>
+              <button onclick="toggleEditar()"
+                      class="btn btn-sm" id="btn-editar">Editar roteiro</button>
+            </div>
+
+            {# Modo leitura #}
+            <div id="roteiro-leitura"
+                 style="font-size:13.5px;color:var(--ink);line-height:1.9;
+                        white-space:pre-wrap;font-style:italic;padding:4px 0">
+              {{ exercicio.roteiro }}
+            </div>
+
+            {# Modo edição #}
+            <div id="roteiro-edicao" style="display:none">
+              <form method="post" action="{% url 'listening_editar_roteiro' disciplina.id exercicio.id %}">
+                {% csrf_token %}
+                <div class="field">
+                  {{ form_editar.roteiro }}
+                  {% if form_editar.roteiro.errors %}
+                    <div class="field-error">{{ form_editar.roteiro.errors.0 }}</div>
+                  {% endif %}
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px">
+                  <button type="button" onclick="toggleEditar()" class="btn btn-sm">Cancelar</button>
+                  <button type="submit" class="btn btn-sm btn-primary">
+                    Salvar e regenerar áudio
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        {# ---- Coluna direita: meta-informações ---- #}
+        <div>
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Detalhes</div>
+            <div style="display:flex;flex-direction:column;gap:10px;font-size:12.5px">
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--ink-60)">Idioma</span>
+                <span style="font-weight:500">{{ exercicio.get_idioma_display }}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--ink-60)">Nível</span>
+                <span style="font-weight:500">{{ exercicio.get_nivel_display }}</span>
+              </div>
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--ink-60)">Voz</span>
+                <span style="font-weight:500">{{ exercicio.get_voz_display }}</span>
+              </div>
+              {% if exercicio.ementa %}
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--ink-60)">Ementa base</span>
+                <span style="font-weight:500;max-width:160px;text-align:right;
+                             white-space:nowrap;overflow:hidden;text-overflow:ellipsis"
+                      title="{{ exercicio.ementa.titulo }}">
+                  {{ exercicio.ementa.titulo }}
+                </span>
+              </div>
+              {% endif %}
+              {% if exercicio.tema_livre %}
+              <div style="display:flex;justify-content:space-between;gap:8px">
+                <span style="color:var(--ink-60);flex-shrink:0">Tema livre</span>
+                <span style="font-weight:500;text-align:right">{{ exercicio.tema_livre }}</span>
+              </div>
+              {% endif %}
+              {% if exercicio.duracao_legivel %}
+              <div style="display:flex;justify-content:space-between">
+                <span style="color:var(--ink-60)">Duração estimada</span>
+                <span style="font-weight:500">{{ exercicio.duracao_legivel }}</span>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+
+          <div class="card" style="background:var(--green-light);border-color:#a8d8cc">
+            <div style="font-size:12px;font-weight:600;color:var(--green-dark);margin-bottom:8px">
+              💡 Como usar em sala
+            </div>
+            <div style="font-size:12px;color:var(--green-dark);line-height:1.7">
+              1. Baixe o MP3 e reproduza no datashow.<br>
+              2. Distribua atividades de compreensão oral.<br>
+              3. Edite o roteiro a qualquer momento e regere o áudio.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- Player ----
+const audio = document.getElementById('audio-el');
+const playIcon = document.getElementById('play-icon');
+const progressFill = document.getElementById('progress-fill');
+const timeCurrent = document.getElementById('time-current');
+
+function fmt(s) {
+  const m = Math.floor(s / 60);
+  return m + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+}
+
+function togglePlay() {
+  if (!audio) return;
+  audio.paused ? audio.play() : audio.pause();
+  playIcon.innerHTML = audio.paused
+    ? '<path d="M2 1l10 7-10 7V1z"/>'
+    : '<rect x="2" y="1" width="4" height="14" rx="1" fill="white"/><rect x="8" y="1" width="4" height="14" rx="1" fill="white"/>';
+}
+
+function updateProgress() {
+  if (!audio || !audio.duration) return;
+  const pct = (audio.currentTime / audio.duration) * 100;
+  progressFill.style.width = pct + '%';
+  timeCurrent.textContent = fmt(audio.currentTime);
+}
+
+function seek(e) {
+  if (!audio || !audio.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  audio.currentTime = ((e.clientX - rect.left) / rect.width) * audio.duration;
+}
+
+function onAudioEnd() {
+  progressFill.style.width = '0%';
+  timeCurrent.textContent = '0:00';
+  playIcon.innerHTML = '<path d="M2 1l10 7-10 7V1z"/>';
+}
+
+// ---- Editar roteiro ----
+function toggleEditar() {
+  const leitura = document.getElementById('roteiro-leitura');
+  const edicao  = document.getElementById('roteiro-edicao');
+  const btn     = document.getElementById('btn-editar');
+  const editando = edicao.style.display === 'none';
+  leitura.style.display = editando ? 'none' : '';
+  edicao.style.display  = editando ? '' : 'none';
+  btn.textContent = editando ? 'Cancelar' : 'Editar roteiro';
+}
+</script>
+{% endblock %}

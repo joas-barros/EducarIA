@@ -21,7 +21,7 @@
         <a href="{% url 'disciplina_editar' disciplina.id %}" class="btn">Editar</a>
         <button class="btn" disabled title="Disponível no Sprint 2">Gerar questões</button>
         {% if request.user.trabalha_com_idiomas %}
-          <a href="{% url 'listening_configurar' disciplina.id %}" class="btn">Gerar listening</a>
+          <button class="btn" disabled title="Disponível no Sprint 3">Gerar listening</button>
         {% endif %}
       </div>
     </div>
