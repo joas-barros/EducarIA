@@ -1,0 +1,157 @@
+{% extends "app/base.html" %}
+{% block title %}{{ titulo }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% if questao %}{% url 'questao_detalhe' questao.id %}{% else %}{% url 'questoes' %}{% endif %}" class="breadcrumb">← Banco de questões</a>
+        <div class="page-title">{{ titulo }}</div>
+        <div class="page-sub">{{ subtitulo }}</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:760px">
+        <form method="post">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="error-box">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Dados da questão</div>
+
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.disciplina.label }}</label>
+                {{ form.disciplina }}
+                {% for err in form.disciplina.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.ementa.label }}</label>
+                {{ form.ementa }}
+                {% for err in form.ementa.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.tipo.label }}</label>
+                {{ form.tipo }}
+                {% for err in form.tipo.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.dificuldade.label }}</label>
+                {{ form.dificuldade }}
+                {% for err in form.dificuldade.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="field">
+              <label>{{ form.enunciado.label }}</label>
+              {{ form.enunciado }}
+              {% for err in form.enunciado.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Resposta e dados específicos</div>
+
+            {% if 'alternativa_a' in form.campos_dados %}
+              <div class="row2">
+                <div class="field">
+                  <label>{{ form.alternativa_a.label }}</label>
+                  {{ form.alternativa_a }}
+                  {% for err in form.alternativa_a.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+                <div class="field">
+                  <label>{{ form.alternativa_b.label }}</label>
+                  {{ form.alternativa_b }}
+                  {% for err in form.alternativa_b.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+              <div class="row2">
+                <div class="field">
+                  <label>{{ form.alternativa_c.label }}</label>
+                  {{ form.alternativa_c }}
+                  {% for err in form.alternativa_c.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+                <div class="field">
+                  <label>{{ form.alternativa_d.label }}</label>
+                  {{ form.alternativa_d }}
+                  {% for err in form.alternativa_d.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+              <div class="row2">
+                <div class="field">
+                  <label>{{ form.gabarito.label }}</label>
+                  {{ form.gabarito }}
+                  {% for err in form.gabarito.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+                <div class="field">
+                  <label>{{ form.justificativa.label }}</label>
+                  {{ form.justificativa }}
+                  {% for err in form.justificativa.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+            {% elif 'resposta_esperada' in form.campos_dados %}
+              <div class="field">
+                <label>{{ form.resposta_esperada.label }}</label>
+                {{ form.resposta_esperada }}
+                {% for err in form.resposta_esperada.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            {% elif 'resposta' in form.campos_dados %}
+              <div class="row2">
+                <div class="field">
+                  <label>{{ form.resposta.label }}</label>
+                  {{ form.resposta }}
+                  {% for err in form.resposta.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+                <div class="field">
+                  <label>{{ form.justificativa.label }}</label>
+                  {{ form.justificativa }}
+                  {% for err in form.justificativa.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+                </div>
+              </div>
+            {% elif 'texto_com_lacunas' in form.campos_dados %}
+              <div class="field">
+                <label>{{ form.texto_com_lacunas.label }}</label>
+                {{ form.texto_com_lacunas }}
+                {% for err in form.texto_com_lacunas.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.respostas_lacunas.label }}</label>
+                {{ form.respostas_lacunas }}
+                {% for err in form.respostas_lacunas.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            {% endif %}
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="{% if questao %}{% url 'questao_detalhe' questao.id %}{% else %}{% url 'questoes' %}{% endif %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Salvar questão</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    const selector = document.querySelector('[data-role="tipo-selector"]');
+    if (!selector) return;
+    selector.addEventListener('change', function () {
+      const url = new URL(window.location.href);
+      url.searchParams.set('tipo', selector.value);
+      window.location.href = url.toString();
+    });
+  })();
+</script>
+{% endblock %}

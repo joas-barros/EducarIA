@@ -16,4 +16,15 @@ urlpatterns = [
 
     path('disciplinas/<uuid:disciplina_pk>/ementas/nova/', views.ementa_nova, name='ementa_nova'),
     path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:pk>/excluir/', views.ementa_excluir, name='ementa_excluir'),
+
+    path('questoes/', views.questoes_list, name='questoes'),
+    path('questoes/nova/', views.questao_nova, name='questao_nova'),
+    path('questoes/copiar/', views.questoes_copiar, name='questoes_copiar'),
+    path('questoes/lotes/<uuid:pk>/revisao/', views.questoes_revisao_lote, name='questoes_revisao_lote'),
+    path('questoes/lotes/<uuid:lote_pk>/aprovar-todas/', views.questoes_aprovar_todas, name='questoes_aprovar_todas'),
+    path('questoes/<uuid:pk>/', views.questao_detalhe, name='questao_detalhe'),
+    path('questoes/<uuid:pk>/editar/', views.questao_editar, name='questao_editar'),
+    path('questoes/<uuid:pk>/excluir/', views.questao_excluir, name='questao_excluir'),
+    path('questoes/<uuid:pk>/aprovar/', views.questao_aprovar, name='questao_aprovar'),
+    path('questoes/<uuid:pk>/rejeitar/', views.questao_rejeitar, name='questao_rejeitar'),
 ]
