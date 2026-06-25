@@ -197,6 +197,35 @@
                 <input type="text" id="question-search-input" class="search-input" placeholder="Buscar no enunciado das questões...">
               </div>
 
+              <!-- Question filters -->
+              <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px">
+                <div class="field" style="margin-bottom:0">
+                  <label style="font-size:11px; font-weight:600; color:var(--ink-60)">Dificuldade</label>
+                  <select id="question-filter-dificuldade" class="sel" style="padding: 6px 10px; font-size:12px">
+                    <option value="">Todas</option>
+                    <option value="facil">Fácil</option>
+                    <option value="medio">Médio</option>
+                    <option value="dificil">Difícil</option>
+                  </select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <label style="font-size:11px; font-weight:600; color:var(--ink-60)">Tipo</label>
+                  <select id="question-filter-tipo" class="sel" style="padding: 6px 10px; font-size:12px">
+                    <option value="">Todos</option>
+                    <option value="multipla_escolha">Múltipla escolha</option>
+                    <option value="verdadeiro_falso">Verdadeiro/Falso</option>
+                    <option value="dissertativa">Dissertativa</option>
+                    <option value="lacunas">Lacunas</option>
+                  </select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <label style="font-size:11px; font-weight:600; color:var(--ink-60)">Ementa específica</label>
+                  <select id="question-filter-ementa" class="sel" style="padding: 6px 10px; font-size:12px">
+                    <option value="">Todas</option>
+                  </select>
+                </div>
+              </div>
+
               <div id="question-count-info" style="font-size:11.5px;color:var(--ink-60);margin-bottom:8px">
                 Mostrando 0 de 0 questões disponíveis.
               </div>
@@ -240,6 +269,11 @@
     const questionsContainer = document.getElementById('questions-list-container');
     const searchInput = document.getElementById('question-search-input');
     const countInfo = document.getElementById('question-count-info');
+
+    // Manual filters DOM Elements
+    const selectFilterDificuldade = document.getElementById('question-filter-dificuldade');
+    const selectFilterTipo = document.getElementById('question-filter-tipo');
+    const selectFilterEmenta = document.getElementById('question-filter-ementa');
 
     // Method Switcher Tabs
     tabs.forEach(tab => {
@@ -285,6 +319,25 @@
         opt.textContent = e.titulo;
         if (e.id === originalValue) opt.selected = true;
         selectEmenta.appendChild(opt);
+      });
+    }
+
+    // Populate filter ementas select based on selected discipline
+    function updateFilterEmentas(disciplineId) {
+      selectFilterEmenta.innerHTML = '';
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = 'Todas';
+      selectFilterEmenta.appendChild(defaultOpt);
+
+      if (!disciplineId) return;
+
+      const filtered = allEmentas.filter(e => e.disciplina_id === disciplineId);
+      filtered.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.titulo;
+        selectFilterEmenta.appendChild(opt);
       });
     }
 
@@ -349,15 +402,31 @@
     // Filter questions based on search input and show count
     function filterAndCount() {
       const query = searchInput.value.toLowerCase().trim();
+      const dif = selectFilterDificuldade.value;
+      const tipo = selectFilterTipo.value;
+      const em = selectFilterEmenta.value;
+
       const items = questionsContainer.querySelectorAll('.question-option-item');
       
       let visible = 0;
       items.forEach(item => {
-        const text = item.getAttribute('data-enunciado');
-        if (text && text.includes(query)) {
+        const id = item.getAttribute('data-id');
+        const q = allQuestoes.find(x => x.id === id);
+        
+        let match = true;
+        if (q) {
+          if (query && !q.enunciado.toLowerCase().includes(query)) match = false;
+          if (dif && q.dificuldade !== dif) match = false;
+          if (tipo && q.tipo !== tipo) match = false;
+          if (em && q.ementa_id !== em) match = false;
+        } else {
+          match = false;
+        }
+
+        if (match) {
           item.style.display = 'flex';
           visible++;
-        } else if (text) {
+        } else {
           item.style.display = 'none';
         }
       });
@@ -383,15 +452,20 @@
     selectDisciplina.addEventListener('change', function() {
       const disciplineId = this.value;
       updateEmentas(disciplineId);
+      updateFilterEmentas(disciplineId);
       updateQuestions(disciplineId);
     });
 
-    // Listen to changes on Search Input
+    // Listen to changes on Search and Filters
     searchInput.addEventListener('input', filterAndCount);
+    selectFilterDificuldade.addEventListener('change', filterAndCount);
+    selectFilterTipo.addEventListener('change', filterAndCount);
+    selectFilterEmenta.addEventListener('change', filterAndCount);
 
     // Initial setup
     const initialDiscipline = selectDisciplina.value;
     updateEmentas(initialDiscipline);
+    updateFilterEmentas(initialDiscipline);
     updateQuestions(initialDiscipline);
 
     // Handle form submission and restore state if there are errors

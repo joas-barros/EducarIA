@@ -584,12 +584,13 @@ def prova_nova(request):
         form = ProvaForm(request.user)
 
     questoes = Questao.objects.banco().do_professor(request.user).select_related('ementa').values(
-        'id', 'enunciado', 'tipo', 'dificuldade', 'disciplina_id', 'ementa__titulo'
+        'id', 'enunciado', 'tipo', 'dificuldade', 'disciplina_id', 'ementa_id', 'ementa__titulo'
     )
     questoes_list = list(questoes)
     for q in questoes_list:
         q['id'] = str(q['id'])
         q['disciplina_id'] = str(q['disciplina_id'])
+        q['ementa_id'] = str(q['ementa_id']) if q['ementa_id'] else ''
         q['tipo_display'] = dict(Questao.TIPO_CHOICES).get(q['tipo'], q['tipo'])
         q['dificuldade_display'] = dict(Questao.DIFICULDADE_CHOICES).get(q['dificuldade'], q['dificuldade'])
         q['ementa_titulo'] = q['ementa__titulo'] or ''
