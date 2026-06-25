@@ -617,6 +617,33 @@ def prova_detalhe(request, pk):
     )
     questoes = prova.questoes.all().select_related('ementa')
     
+    if 'pdf' in request.GET:
+        from io import BytesIO
+        from django.template.loader import get_template
+        from xhtml2pdf import pisa
+        
+        com_gabarito = request.GET.get('gabarito') == '1'
+        
+        context = {
+            'prova': prova,
+            'questoes': questoes,
+            'com_gabarito': com_gabarito,
+        }
+        
+        template = get_template('app/prova_pdf.html')
+        html = template.render(context)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("utf-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            suffix = "gabarito" if com_gabarito else "prova"
+            filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.pdf"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            return HttpResponse("Erro ao gerar PDF", status=500)
+
     if 'download' in request.GET or 'copiar' in request.GET:
         com_gabarito = request.GET.get('gabarito') == '1'
         texto = formatar_questoes_para_copia(list(questoes), com_gabarito=com_gabarito)

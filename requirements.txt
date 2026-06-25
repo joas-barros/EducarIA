@@ -5,3 +5,5 @@ django-formtools
 djangorestframework
 django-filter
 python-dotenv
+xhtml2pdf
+

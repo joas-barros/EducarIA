@@ -84,9 +84,8 @@
         </div>
       </div>
       <div class="topbar-right">
-        <button onclick="window.print()" class="btn btn-primary">Imprimir</button>
+        <a href="?pdf=1&gabarito=0" id="btn-pdf" class="btn btn-primary">Exportar como PDF</a>
         <a href="?copiar=1&gabarito=0" id="btn-copiar" class="btn">Copiar texto</a>
-        <a href="?download=1&gabarito=0" id="btn-download" class="btn">Baixar arquivo .txt</a>
         <a href="{% url 'prova_excluir' prova.id %}" class="btn btn-danger" style="border-color: #e8a8a8; color: var(--red);">Excluir</a>
       </div>
     </div>
@@ -253,7 +252,7 @@
     const contentGabarito = document.getElementById('content-gabarito');
     
     const btnCopiar = document.getElementById('btn-copiar');
-    const btnDownload = document.getElementById('btn-download');
+    const btnPdf = document.getElementById('btn-pdf');
 
     if (tab === 'prova') {
       btnProva.classList.add('active');
@@ -263,9 +262,9 @@
       contentGabarito.style.display = 'none';
       contentGabarito.classList.remove('active');
       
-      // Update href attributes for downloading/copying student version
+      // Update href attributes for copying/PDF download of student version
       btnCopiar.href = '?copiar=1&gabarito=0';
-      btnDownload.href = '?download=1&gabarito=0';
+      btnPdf.href = '?pdf=1&gabarito=0';
     } else {
       btnGabarito.classList.add('active');
       btnProva.classList.remove('active');
@@ -274,9 +273,9 @@
       contentProva.style.display = 'none';
       contentProva.classList.remove('active');
       
-      // Update href attributes for downloading/copying teacher version with answer key
+      // Update href attributes for copying/PDF download of teacher version with answer key
       btnCopiar.href = '?copiar=1&gabarito=1';
-      btnDownload.href = '?download=1&gabarito=1';
+      btnPdf.href = '?pdf=1&gabarito=1';
     }
   }
 </script>

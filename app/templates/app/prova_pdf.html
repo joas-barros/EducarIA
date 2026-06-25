@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    @page {
+      size: a4;
+      margin: 2cm;
+    }
+    body {
+      font-family: sans-serif;
+      color: #111816;
+      font-size: 10pt;
+      line-height: 1.5;
+    }
+    .header-table {
+      width: 100%;
+      border-bottom: 2px solid #1a7a5e;
+      padding-bottom: 8px;
+      margin-bottom: 18px;
+    }
+    .header-title {
+      font-size: 14pt;
+      font-weight: bold;
+      text-align: center;
+      margin-top: 12px;
+      margin-bottom: 18px;
+    }
+    .question {
+      margin-bottom: 22px;
+    }
+    .question-num {
+      font-weight: bold;
+      color: #1a7a5e;
+      margin-bottom: 4px;
+      font-size: 10.5pt;
+    }
+    .alternatives {
+      margin-top: 4px;
+      margin-left: 12px;
+    }
+    .alternative-item {
+      margin-bottom: 3px;
+    }
+    .gabarito {
+      color: #1a7a5e;
+      font-weight: bold;
+      margin-top: 4px;
+      font-size: 9.5pt;
+    }
+    .justificativa {
+      font-style: italic;
+      color: #555555;
+      font-size: 9pt;
+      margin-top: 4px;
+    }
+    .lines {
+      margin-top: 8px;
+      border-bottom: 1px solid #cccccc;
+      height: 20px;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <table class="header-table">
+    <tr>
+      <td style="font-size: 13pt; font-weight: bold; color: #1a7a5e; font-family: sans-serif;">EducarIA — Avaliação</td>
+      <td style="text-align: right; font-size: 9pt; color: #666666;">Data: ____/____/______</td>
+    </tr>
+    <tr>
+      <td style="font-size: 9.5pt; padding-top: 6px;"><strong>Disciplina:</strong> {{ prova.disciplina.nome }}</td>
+      <td style="text-align: right; font-size: 9.5pt; padding-top: 6px;"><strong>Professor(a):</strong> {{ prova.professor.get_full_name }}</td>
+    </tr>
+    <tr>
+      <td colspan="2" style="font-size: 9.5pt; padding-top: 6px;"><strong>Aluno(a):</strong> ____________________________________________________________________</td>
+    </tr>
+  </table>
+
+  <div class="header-title">
+    {% if com_gabarito %}GABARITO: {% endif %}{{ prova.titulo }}
+  </div>
+
+  <!-- Questions -->
+  {% for q in questoes %}
+    <div class="question" style="page-break-inside: avoid;">
+      <div class="question-num">Questão {{ forloop.counter }}</div>
+      <div style="font-size: 10pt;">{{ q.enunciado }}</div>
+
+      {% if q.tipo == 'multipla_escolha' %}
+        <div class="alternatives">
+          {% for alt in q.dados.alternativas %}
+            <div class="alternative-item"><strong>{{ alt.letra }})</strong> {{ alt.texto }}</div>
+          {% endfor %}
+        </div>
+        {% if com_gabarito %}
+          <div class="gabarito">✓ Gabarito: Alternativa {{ q.dados.gabarito }}</div>
+        {% endif %}
+
+      {% elif q.tipo == 'verdadeiro_falso' %}
+        {% if com_gabarito %}
+          <div class="gabarito">Gabarito / Resposta Correta: {{ q.dados.resposta }} (V = Verdadeiro, F = Falso)</div>
+        {% else %}
+          <div style="margin-top: 4px; color: #555555; font-size: 9.5pt;">( &nbsp; &nbsp; ) Verdadeiro &nbsp; &nbsp; &nbsp; &nbsp; ( &nbsp; &nbsp; ) Falso</div>
+        {% endif %}
+
+      {% elif q.tipo == 'dissertativa' %}
+        {% if com_gabarito %}
+          <div style="margin-top: 4px; padding: 6px; border-left: 2.5px solid #1a7a5e; background-color: #f7f6f2; font-size: 9.5pt;">
+            <strong>Resposta Esperada:</strong> {{ q.dados.resposta_esperada }}
+          </div>
+        {% else %}
+          <!-- Blank lines for student response -->
+          <div class="lines"></div>
+          <div class="lines"></div>
+          <div class="lines"></div>
+          <div class="lines"></div>
+        {% endif %}
+
+      {% elif q.tipo == 'lacunas' %}
+        <div style="margin-top: 4px; font-style: italic; background-color: #f7f6f2; padding: 6px; font-size: 9.5pt;">
+          {{ q.dados.texto_com_lacunas }}
+        </div>
+        {% if com_gabarito %}
+          <div style="margin-top: 4px; font-size: 9.5pt;">
+            <strong>Gabarito lacunas:</strong>
+            {% for item in q.dados.respostas %}
+              {{ item.posicao }}: {{ item.palavra }}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endif %}
+
+      {% if com_gabarito and q.dados.justificativa %}
+        <div class="justificativa">Justificativa: {{ q.dados.justificativa }}</div>
+      {% endif %}
+    </div>
+  {% endfor %}
+</body>
+</html>
