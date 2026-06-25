@@ -10,13 +10,15 @@ from formtools.wizard.views import SessionWizardView
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
-    EmentaForm, get_questao_form_class, initial_questao_form, ProvaForm,
+    EmentaForm, GeracaoQuestoesForm, get_questao_form_class, initial_questao_form, ProvaForm,
 )
 from .models import Disciplina, Ementa, LoteGeracaoQuestao, Questao, Prova
+from .services.ia import gerar_payload_questoes_gemini
 from .services.questoes import (
     aprovar_questao,
     aprovar_todas_questoes,
     editar_e_aprovar_questao,
+    criar_lote_questoes,
     formatar_questoes_para_copia,
     linhas_dados_questao,
     rejeitar_questao,
@@ -336,6 +338,64 @@ def questoes_list(request):
             (Questao.STATUS_EDITADA, 'Editada'),
         ],
         'filtros': filtros,
+    })
+
+
+@login_required
+def questoes_gerar(request):
+    disciplina_inicial = request.GET.get('disciplina')
+    initial = {}
+    if disciplina_inicial:
+        initial['disciplina'] = disciplina_inicial
+    form = GeracaoQuestoesForm(request.user, initial=initial)
+
+    if request.method == 'POST':
+        form = GeracaoQuestoesForm(request.user, request.POST)
+        if form.is_valid():
+            disciplina = form.cleaned_data['disciplina']
+            ementa = form.cleaned_data.get('ementa')
+            quantidade = form.cleaned_data['quantidade']
+            tipo = form.cleaned_data['tipo']
+            dificuldade = form.cleaned_data['dificuldade']
+            instrucao = form.cleaned_data.get('instrucao') or ''
+
+            try:
+                payload = gerar_payload_questoes_gemini(
+                    disciplina_id=disciplina.id,
+                    disciplina_nome=disciplina.nome,
+                    ementa_id=ementa.id if ementa else None,
+                    ementa_texto=(ementa.texto_colado if ementa else '') or '',
+                    instrucao=instrucao,
+                    tipo=tipo,
+                    dificuldade=dificuldade,
+                    quantidade=quantidade,
+                )
+            except Exception as exc:
+                form.add_error(None, f'Não foi possível gerar as questões: {exc}')
+            else:
+                disciplina_id = payload.get('disciplina_id') or str(disciplina.id)
+                ementa_payload_id = payload.get('ementa_id')
+                questoes = payload.get('questoes') or []
+
+                if str(disciplina.id) != str(disciplina_id):
+                    form.add_error(None, 'O payload da IA retornou uma disciplina diferente da selecionada.')
+                else:
+                    if ementa and ementa_payload_id and str(ementa.id) != str(ementa_payload_id):
+                        form.add_error(None, 'O payload da IA retornou uma ementa diferente da selecionada.')
+                    else:
+                        lote, _, _ = criar_lote_questoes(
+                            professor=request.user,
+                            disciplina=disciplina,
+                            ementa=ementa,
+                            questoes=questoes,
+                        )
+                        if lote is None:
+                            form.add_error(None, 'A IA não gerou nenhuma questão válida para salvar.')
+                        else:
+                            return redirect('questoes_revisao_lote', pk=lote.id)
+
+    return render(request, 'app/questoes_gerar.html', {
+        'form': form,
     })
 
 
@@ -697,4 +757,3 @@ def prova_excluir(request, pk):
         'prova': prova,
         'active_page': 'provas',
     })
-
