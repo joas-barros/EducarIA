@@ -2,3 +2,5 @@ Django
 psycopg2
 django-getenv
 django-formtools
+djangorestframework
+django-filter
