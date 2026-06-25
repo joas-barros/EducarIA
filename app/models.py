@@ -263,3 +263,32 @@ class Questao(models.Model):
 
     def __str__(self):
         return self.enunciado[:80]
+
+
+class Prova(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    titulo = models.CharField(max_length=200)
+    professor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='provas',
+    )
+    disciplina = models.ForeignKey(
+        Disciplina,
+        on_delete=models.CASCADE,
+        related_name='provas',
+    )
+    questoes = models.ManyToManyField(
+        Questao,
+        related_name='provas',
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Prova'
+        verbose_name_plural = 'Provas'
+
+    def __str__(self):
+        return self.titulo

@@ -10,9 +10,9 @@ from formtools.wizard.views import SessionWizardView
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
-    EmentaForm, get_questao_form_class, initial_questao_form,
+    EmentaForm, get_questao_form_class, initial_questao_form, ProvaForm,
 )
-from .models import Disciplina, Ementa, LoteGeracaoQuestao, Questao
+from .models import Disciplina, Ementa, LoteGeracaoQuestao, Questao, Prova
 from .services.questoes import (
     aprovar_questao,
     aprovar_todas_questoes,
@@ -527,3 +527,174 @@ def questao_rejeitar(request, pk):
     if lote_id:
         return redirect('questoes_revisao_lote', pk=lote_id)
     return redirect('questoes')
+
+
+@login_required
+def provas_list(request):
+    provas = Prova.objects.filter(professor=request.user).select_related('disciplina')
+    return render(request, 'app/provas.html', {
+        'provas': provas,
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_nova(request):
+    if request.method == 'POST':
+        form = ProvaForm(request.user, request.POST)
+        if form.is_valid():
+            titulo = form.cleaned_data['titulo']
+            disciplina = form.cleaned_data['disciplina']
+            metodo = form.cleaned_data['metodo']
+
+            if metodo == 'manual':
+                questoes = form.cleaned_data['questoes']
+                prova = Prova.objects.create(
+                    titulo=titulo,
+                    disciplina=disciplina,
+                    professor=request.user,
+                )
+                prova.questoes.set(questoes)
+                return redirect('prova_detalhe', pk=prova.id)
+
+            elif metodo == 'automatico':
+                ementa = form.cleaned_data['ementa']
+                qtd_facil = form.cleaned_data['qtd_facil'] or 0
+                qtd_medio = form.cleaned_data['qtd_medio'] or 0
+                qtd_dificil = form.cleaned_data['qtd_dificil'] or 0
+
+                base_qs = Questao.objects.banco().filter(disciplina=disciplina)
+                if ementa:
+                    base_qs = base_qs.filter(ementa=ementa)
+
+                questoes_facil = list(base_qs.filter(dificuldade='facil').order_by('?')[:qtd_facil])
+                questoes_medio = list(base_qs.filter(dificuldade='medio').order_by('?')[:qtd_medio])
+                questoes_dificil = list(base_qs.filter(dificuldade='dificil').order_by('?')[:qtd_dificil])
+
+                questoes = questoes_facil + questoes_medio + questoes_dificil
+
+                if not questoes:
+                    form.add_error(None, 'Nenhuma questão foi encontrada no banco correspondente aos critérios selecionados. Adicione mais questões ou mude os filtros.')
+                else:
+                    prova = Prova.objects.create(
+                        titulo=titulo,
+                        disciplina=disciplina,
+                        professor=request.user,
+                    )
+                    prova.questoes.set(questoes)
+                    return redirect('prova_detalhe', pk=prova.id)
+    else:
+        form = ProvaForm(request.user)
+
+    questoes = Questao.objects.banco().do_professor(request.user).select_related('ementa').values(
+        'id', 'enunciado', 'tipo', 'dificuldade', 'disciplina_id', 'ementa_id', 'ementa__titulo'
+    )
+    questoes_list = list(questoes)
+    for q in questoes_list:
+        q['id'] = str(q['id'])
+        q['disciplina_id'] = str(q['disciplina_id'])
+        q['ementa_id'] = str(q['ementa_id']) if q['ementa_id'] else ''
+        q['tipo_display'] = dict(Questao.TIPO_CHOICES).get(q['tipo'], q['tipo'])
+        q['dificuldade_display'] = dict(Questao.DIFICULDADE_CHOICES).get(q['dificuldade'], q['dificuldade'])
+        q['ementa_titulo'] = q['ementa__titulo'] or ''
+
+    ementas = Ementa.objects.filter(disciplina__professor=request.user).values('id', 'titulo', 'disciplina_id')
+    ementas_list = list(ementas)
+    for e in ementas_list:
+        e['id'] = str(e['id'])
+        e['disciplina_id'] = str(e['disciplina_id'])
+
+    import json
+    return render(request, 'app/prova_form.html', {
+        'form': form,
+        'questoes_json': json.dumps(questoes_list),
+        'ementas_json': json.dumps(ementas_list),
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_detalhe(request, pk):
+    prova = get_object_or_404(
+        Prova.objects.filter(professor=request.user).select_related('disciplina'),
+        id=pk
+    )
+    questoes = prova.questoes.all().select_related('ementa')
+    
+    if 'pdf' in request.GET:
+        from io import BytesIO
+        from django.template.loader import get_template
+        from xhtml2pdf import pisa
+        
+        com_gabarito = request.GET.get('gabarito') == '1'
+        
+        context = {
+            'prova': prova,
+            'questoes': questoes,
+            'com_gabarito': com_gabarito,
+        }
+        
+        template = get_template('app/prova_pdf.html')
+        html = template.render(context)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("utf-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            custom_filename = request.GET.get('filename')
+            if custom_filename:
+                import re
+                clean_filename = re.sub(r'[\\/*?:"<>|]', "", custom_filename).strip()
+                filename = f"{clean_filename}.pdf"
+            else:
+                suffix = "gabarito" if com_gabarito else "prova"
+                filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.pdf"
+            
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            return HttpResponse("Erro ao gerar PDF", status=500)
+
+    if 'download' in request.GET or 'copiar' in request.GET:
+        com_gabarito = request.GET.get('gabarito') == '1'
+        texto = formatar_questoes_para_copia(list(questoes), com_gabarito=com_gabarito)
+        tipo_documento = "GABARITO" if com_gabarito else "PROVA"
+        cabecalho = f"{tipo_documento}: {prova.titulo.upper()}\nDISCIPLINA: {prova.disciplina.nome.upper()}\nPROFESSOR(A): {prova.professor.get_full_name().upper()}\nDATA: {prova.criado_em.strftime('%d/%m/%Y')}\n"
+        cabecalho += "="*60 + "\n\n"
+        texto_completo = cabecalho + texto
+        
+        if 'download' in request.GET:
+            response = HttpResponse(texto_completo, content_type='text/plain; charset=utf-8')
+            suffix = "gabarito" if com_gabarito else "prova"
+            filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.txt"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+            
+        return render(request, 'app/prova_copiar.html', {
+            'prova': prova,
+            'questoes': questoes,
+            'texto': texto_completo,
+            'com_gabarito': com_gabarito,
+        })
+        
+    return render(request, 'app/prova_detalhe.html', {
+        'prova': prova,
+        'questoes': questoes,
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_excluir(request, pk):
+    prova = get_object_or_404(
+        Prova.objects.filter(professor=request.user),
+        id=pk
+    )
+    if request.method == 'POST':
+        prova.delete()
+        return redirect('provas')
+    return render(request, 'app/prova_excluir.html', {
+        'prova': prova,
+        'active_page': 'provas',
+    })
+

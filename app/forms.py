@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from .models import Disciplina, Ementa, Questao
+from .models import Disciplina, Ementa, Questao, Prova
 from .services.questoes import validar_dados_questao
 
 Professor = get_user_model()
@@ -511,3 +511,98 @@ def initial_questao_form(questao):
         })
 
     return initial
+
+
+class ProvaForm(forms.Form):
+    titulo = forms.CharField(
+        max_length=200,
+        label='Título da prova',
+        widget=forms.TextInput(attrs={'class': 'inp', 'placeholder': 'Ex: Prova de Matemática - 1º Bimestre'}),
+    )
+    disciplina = forms.ModelChoiceField(
+        queryset=Disciplina.objects.none(),
+        label='Disciplina',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    metodo = forms.ChoiceField(
+        choices=[
+            ('manual', 'Selecionar manualmente do banco de questões'),
+            ('automatico', 'Gerar automaticamente com base em critérios'),
+        ],
+        label='Método de criação',
+        widget=forms.RadioSelect(attrs={'class': 'metodo-radio'}),
+        initial='manual',
+    )
+
+    # Automatic fields
+    ementa = forms.ModelChoiceField(
+        queryset=Ementa.objects.none(),
+        required=False,
+        label='Ementa específica (opcional)',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    qtd_facil = forms.IntegerField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label='Qtd. de questões Fáceis',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
+    )
+    qtd_medio = forms.IntegerField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label='Qtd. de questões Médias',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
+    )
+    qtd_dificil = forms.IntegerField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label='Qtd. de questões Difíceis',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
+    )
+
+    # Manual fields
+    questoes = forms.ModelMultipleChoiceField(
+        queryset=Questao.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label='Questões',
+    )
+
+    def __init__(self, professor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.professor = professor
+        self.fields['disciplina'].queryset = Disciplina.objects.filter(professor=professor)
+        self.fields['ementa'].queryset = Ementa.objects.filter(disciplina__professor=professor)
+        self.fields['questoes'].queryset = Questao.objects.banco().do_professor(professor).select_related('disciplina', 'ementa')
+
+    def clean(self):
+        cleaned = super().clean()
+        metodo = cleaned.get('metodo')
+        disciplina = cleaned.get('disciplina')
+        ementa = cleaned.get('ementa')
+
+        if disciplina and ementa and ementa.disciplina_id != disciplina.id:
+            self.add_error('ementa', 'A ementa selecionada não pertence a essa disciplina.')
+
+        if metodo == 'manual':
+            questoes = cleaned.get('questoes')
+            if not questoes:
+                self.add_error('questoes', 'Você deve selecionar pelo menos uma questão para a prova.')
+            elif disciplina:
+                for q in questoes:
+                    if q.disciplina_id != disciplina.id:
+                        self.add_error('questoes', f'A questão "{q.enunciado[:30]}..." não pertence à disciplina selecionada.')
+                        break
+        elif metodo == 'automatico':
+            q_facil = cleaned.get('qtd_facil') or 0
+            q_medio = cleaned.get('qtd_medio') or 0
+            q_dificil = cleaned.get('qtd_dificil') or 0
+            
+            if q_facil + q_medio + q_dificil <= 0:
+                self.add_error(None, 'Você deve definir a quantidade maior do que 0 para pelo menos um dos níveis de dificuldade.')
+
+        return cleaned
+

@@ -6,3 +6,4 @@ djangorestframework
 django-filter
 python-dotenv
 google-genai
+xhtml2pdf
