@@ -164,23 +164,32 @@
           <div class="card" id="section-automatico" style="margin-bottom:16px; display:none">
             <div class="card-title" style="font-size:14px;font-weight:600;margin-bottom:16px">Critérios de Geração Automática</div>
 
-            <div class="row2">
-              <div class="field">
-                <label for="id_dificuldade">{{ form.dificuldade.label }}</label>
-                {{ form.dificuldade }}
-                {% for err in form.dificuldade.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
-              </div>
-              <div class="field">
-                <label for="id_ementa">{{ form.ementa.label }}</label>
-                {{ form.ementa }}
-                {% for err in form.ementa.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
-              </div>
+            <div class="field">
+              <label for="id_ementa">{{ form.ementa.label }}</label>
+              {{ form.ementa }}
+              {% for err in form.ementa.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
             </div>
 
-            <div class="field">
-              <label for="id_quantidade">{{ form.quantidade.label }}</label>
-              {{ form.quantidade }}
-              {% for err in form.quantidade.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+            <div style="font-size:12px; font-weight:600; margin-top:16px; margin-bottom:8px; color:var(--ink)">
+              Distribuição por Dificuldade (defina a quantidade de questões para cada nível):
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap: 12px">
+              <div class="field" style="margin-bottom:0">
+                <label for="id_qtd_facil">{{ form.qtd_facil.label }}</label>
+                {{ form.qtd_facil }}
+                {% for err in form.qtd_facil.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label for="id_qtd_medio">{{ form.qtd_medio.label }}</label>
+                {{ form.qtd_medio }}
+                {% for err in form.qtd_medio.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field" style="margin-bottom:0">
+                <label for="id_qtd_dificil">{{ form.qtd_dificil.label }}</label>
+                {{ form.qtd_dificil }}
+                {% for err in form.qtd_dificil.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+              </div>
             </div>
           </div>
 

@@ -558,17 +558,20 @@ def prova_nova(request):
                 return redirect('prova_detalhe', pk=prova.id)
 
             elif metodo == 'automatico':
-                dificuldade = form.cleaned_data['dificuldade']
                 ementa = form.cleaned_data['ementa']
-                quantidade = form.cleaned_data['quantidade']
+                qtd_facil = form.cleaned_data['qtd_facil'] or 0
+                qtd_medio = form.cleaned_data['qtd_medio'] or 0
+                qtd_dificil = form.cleaned_data['qtd_dificil'] or 0
 
-                qs = Questao.objects.banco().filter(disciplina=disciplina)
-                if dificuldade:
-                    qs = qs.filter(dificuldade=dificuldade)
+                base_qs = Questao.objects.banco().filter(disciplina=disciplina)
                 if ementa:
-                    qs = qs.filter(ementa=ementa)
+                    base_qs = base_qs.filter(ementa=ementa)
 
-                questoes = list(qs.order_by('?')[:quantidade])
+                questoes_facil = list(base_qs.filter(dificuldade='facil').order_by('?')[:qtd_facil])
+                questoes_medio = list(base_qs.filter(dificuldade='medio').order_by('?')[:qtd_medio])
+                questoes_dificil = list(base_qs.filter(dificuldade='dificil').order_by('?')[:qtd_dificil])
+
+                questoes = questoes_facil + questoes_medio + questoes_dificil
 
                 if not questoes:
                     form.add_error(None, 'Nenhuma questão foi encontrada no banco correspondente aos critérios selecionados. Adicione mais questões ou mude os filtros.')

@@ -535,24 +535,32 @@ class ProvaForm(forms.Form):
     )
 
     # Automatic fields
-    dificuldade = forms.ChoiceField(
-        choices=[('', 'Qualquer dificuldade')] + Questao.DIFICULDADE_CHOICES,
-        required=False,
-        label='Dificuldade',
-        widget=forms.Select(attrs={'class': 'sel'}),
-    )
     ementa = forms.ModelChoiceField(
         queryset=Ementa.objects.none(),
         required=False,
         label='Ementa específica (opcional)',
         widget=forms.Select(attrs={'class': 'sel'}),
     )
-    quantidade = forms.IntegerField(
-        min_value=1,
-        initial=5,
+    qtd_facil = forms.IntegerField(
+        min_value=0,
+        initial=0,
         required=False,
-        label='Quantidade de questões',
-        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 1}),
+        label='Qtd. de questões Fáceis',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
+    )
+    qtd_medio = forms.IntegerField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label='Qtd. de questões Médias',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
+    )
+    qtd_dificil = forms.IntegerField(
+        min_value=0,
+        initial=0,
+        required=False,
+        label='Qtd. de questões Difíceis',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 0}),
     )
 
     # Manual fields
@@ -589,9 +597,12 @@ class ProvaForm(forms.Form):
                         self.add_error('questoes', f'A questão "{q.enunciado[:30]}..." não pertence à disciplina selecionada.')
                         break
         elif metodo == 'automatico':
-            quantidade = cleaned.get('quantidade')
-            if not quantidade or quantidade < 1:
-                self.add_error('quantidade', 'Informe uma quantidade válida maior ou igual a 1.')
+            q_facil = cleaned.get('qtd_facil') or 0
+            q_medio = cleaned.get('qtd_medio') or 0
+            q_dificil = cleaned.get('qtd_dificil') or 0
+            
+            if q_facil + q_medio + q_dificil <= 0:
+                self.add_error(None, 'Você deve definir a quantidade maior do que 0 para pelo menos um dos níveis de dificuldade.')
 
         return cleaned
 
