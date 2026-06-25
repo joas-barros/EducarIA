@@ -247,38 +247,48 @@ def linhas_dados_questao(questao):
     return linhas
 
 
-def formatar_questoes_para_copia(questoes):
+def formatar_questoes_para_copia(questoes, com_gabarito=True):
     partes = []
     for numero, questao in enumerate(questoes, start=1):
-        partes.append(_formatar_questao_para_copia(numero, questao))
+        partes.append(_formatar_questao_para_copia(numero, questao, com_gabarito))
     return '\n\n'.join(partes)
 
 
-def _formatar_questao_para_copia(numero, questao):
+def _formatar_questao_para_copia(numero, questao, com_gabarito=True):
     linhas = [
         f'{numero}. {questao.enunciado}',
-        f'Tipo: {questao.get_tipo_display()} | Dificuldade: {questao.get_dificuldade_display()}',
     ]
+    if com_gabarito:
+        linhas.append(f'Tipo: {questao.get_tipo_display()} | Dificuldade: {questao.get_dificuldade_display()}')
+    
     dados = questao.dados or {}
 
     if questao.tipo == Questao.TIPO_MULTIPLA_ESCOLHA:
         for alternativa in dados.get('alternativas', []):
             linhas.append(f"{alternativa.get('letra')}) {alternativa.get('texto')}")
-        linhas.append(f"Gabarito: {dados.get('gabarito', '')}")
+        if com_gabarito:
+            linhas.append(f"Gabarito: {dados.get('gabarito', '')}")
     elif questao.tipo == Questao.TIPO_VERDADEIRO_FALSO:
-        linhas.append(f"Resposta: {dados.get('resposta', '')}")
+        if com_gabarito:
+            linhas.append(f"Resposta: {dados.get('resposta', '')}")
     elif questao.tipo == Questao.TIPO_DISSERTATIVA:
-        linhas.append(f"Resposta esperada: {dados.get('resposta_esperada', '')}")
+        if com_gabarito:
+            linhas.append(f"Resposta esperada: {dados.get('resposta_esperada', '')}")
+        else:
+            # Add some blank lines for students to write answers
+            linhas.append('\n' + '_' * 60 + '\n' + '_' * 60 + '\n')
     elif questao.tipo == Questao.TIPO_LACUNAS:
         linhas.append(f"Texto: {dados.get('texto_com_lacunas', '')}")
-        respostas = ', '.join(
-            f"{item.get('posicao')}: {item.get('palavra')}"
-            for item in dados.get('respostas', [])
-        )
-        linhas.append(f"Respostas: {respostas}")
+        if com_gabarito:
+            respostas = ', '.join(
+                f"{item.get('posicao')}: {item.get('palavra')}"
+                for item in dados.get('respostas', [])
+            )
+            linhas.append(f"Respostas: {respostas}")
 
-    justificativa = dados.get('justificativa')
-    if justificativa:
-        linhas.append(f'Justificativa: {justificativa}')
+    if com_gabarito:
+        justificativa = dados.get('justificativa')
+        if justificativa:
+            linhas.append(f'Justificativa: {justificativa}')
 
     return '\n'.join(linhas)

@@ -2,6 +2,75 @@
 {% block title %}{{ prova.titulo }} — EducarIA{% endblock %}
 
 {% block body %}
+<style>
+  /* Tabs styling */
+  .tabs-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    border-bottom: 1.5px solid var(--ink-10);
+    padding-bottom: 8px;
+  }
+  .btn-tab {
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--ink-60);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 16px;
+    transition: all 0.15s;
+  }
+  .btn-tab:hover {
+    color: var(--ink);
+    background: var(--ink-10);
+  }
+  .btn-tab.active {
+    color: var(--green);
+    background: var(--green-light);
+    border-color: var(--green-light);
+    font-weight: 600;
+  }
+
+  /* Print specific formatting */
+  @media print {
+    body, .with-sidebar, .main-area, .content {
+      background: white !important;
+      color: black !important;
+      padding: 0 !important;
+      margin: 0 !important;
+      display: block !important;
+    }
+    .sidebar, .topbar, .tabs-nav, .btn, .breadcrumb {
+      display: none !important;
+    }
+    .card {
+      border: none !important;
+      box-shadow: none !important;
+      padding: 0 !important;
+      margin-bottom: 28px !important;
+      background: transparent !important;
+      page-break-inside: avoid;
+    }
+    .tab-content {
+      display: none !important;
+    }
+    .tab-content.active {
+      display: block !important;
+    }
+    .print-header {
+      border-bottom: 2px solid black !important;
+    }
+    .print-dashed {
+      border-bottom: 1px dashed black !important;
+    }
+    .badge {
+      display: none !important; /* Hide difficulty badges during printing */
+    }
+  }
+</style>
+
 <div class="with-sidebar">
   {% include "app/_sidebar.html" with active_page="provas" %}
 
@@ -15,99 +84,200 @@
         </div>
       </div>
       <div class="topbar-right">
-        <a href="?copiar=1" class="btn">Copiar texto da prova</a>
-        <a href="?download=1" class="btn">Baixar arquivo .txt</a>
+        <button onclick="window.print()" class="btn btn-primary">Imprimir</button>
+        <a href="?copiar=1&gabarito=0" id="btn-copiar" class="btn">Copiar texto</a>
+        <a href="?download=1&gabarito=0" id="btn-download" class="btn">Baixar arquivo .txt</a>
         <a href="{% url 'prova_excluir' prova.id %}" class="btn btn-danger" style="border-color: #e8a8a8; color: var(--red);">Excluir</a>
       </div>
     </div>
 
     <div class="content">
+      <!-- Tab selectors -->
+      <div class="tabs-nav">
+        <button class="btn-tab active" onclick="switchTab('prova')" id="tab-btn-prova">Prova (Aluno)</button>
+        <button class="btn-tab" onclick="switchTab('gabarito')" id="tab-btn-gabarito">Gabarito (Professor)</button>
+      </div>
+
       <div style="max-width:800px; display:flex; flex-direction:column; gap:16px">
-        
-        <!-- Exam Header Sheet Preview -->
-        <div class="card" style="border-bottom: 2px solid var(--green); border-radius: var(--r-md)">
-          <div style="display:flex; flex-direction:column; gap:8px; border-bottom: 1px dashed var(--ink-30); padding-bottom: 12px; margin-bottom: 12px">
-            <div style="display:flex; justify-content:space-between; align-items:center">
-              <span style="font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--green)">Educar<em>IA</em> — Avaliação</span>
-              <span style="font-size:11px; color:var(--ink-60)">Data: ____/____/______</span>
+
+        <!-- TAB CONTENT: PROVA (ALUNO) -->
+        <div id="content-prova" class="tab-content active">
+          <!-- Print Sheet Header -->
+          <div class="card print-header" style="border-bottom: 2px solid var(--green); border-radius: var(--r-md); margin-bottom: 24px">
+            <div class="print-dashed" style="display:flex; flex-direction:column; gap:8px; border-bottom: 1px dashed var(--ink-30); padding-bottom: 12px; margin-bottom: 12px">
+              <div style="display:flex; justify-content:space-between; align-items:center">
+                <span style="font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--green)">Educar<em>IA</em> — Avaliação</span>
+                <span style="font-size:11px; color:var(--ink-60)">Data: ____/____/______</span>
+              </div>
+              <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; font-size:12.5px; color:var(--ink)">
+                <div><strong>Disciplina:</strong> {{ prova.disciplina.nome }}</div>
+                <div><strong>Professor(a):</strong> {{ prova.professor.get_full_name }}</div>
+                <div style="grid-column: span 2"><strong>Aluno(a):</strong> ____________________________________________________________________</div>
+              </div>
             </div>
-            <div style="display:grid; grid-template-columns: 2fr 1fr; gap:10px; font-size:12.5px; color:var(--ink)">
-              <div><strong>Disciplina:</strong> {{ prova.disciplina.nome }}</div>
-              <div><strong>Professor(a):</strong> {{ prova.professor.get_full_name }}</div>
-              <div style="grid-column: span 2"><strong>Aluno(a):</strong> ____________________________________________________________________</div>
+            <div style="text-align:center; font-family:'Playfair Display',serif; font-weight:700; font-size:16px; margin: 12px 0">
+              {{ prova.titulo }}
             </div>
           </div>
-          <div style="text-align:center; font-family:'Playfair Display',serif; font-weight:700; font-size:16px; margin: 12px 0">
-            {{ prova.titulo }}
+
+          <!-- Questions without answers -->
+          <div style="display:flex; flex-direction:column; gap:20px">
+            {% for q in questoes %}
+              <div class="card" style="border-radius: var(--r-md)">
+                <div style="font-weight:600; font-size:13.5px; margin-bottom:10px; color:var(--green)">
+                  Questão {{ forloop.counter }}
+                </div>
+
+                <div style="font-size:14.5px; line-height:1.6; color:var(--ink); margin-bottom:12px; white-space:pre-wrap">{{ q.enunciado }}</div>
+
+                {% if q.tipo == 'multipla_escolha' %}
+                  <div style="display:flex; flex-direction:column; gap:8px; margin-left:12px">
+                    {% for alt in q.dados.alternativas %}
+                      <div style="font-size:13px; line-height:1.4">
+                        <strong>{{ alt.letra }})</strong> {{ alt.texto }}
+                      </div>
+                    {% endfor %}
+                  </div>
+
+                {% elif q.tipo == 'verdadeiro_falso' %}
+                  <div style="display:flex; gap:24px; margin-left:12px; margin-top:8px; font-size:13px; color:var(--ink-60)">
+                    <span>( &nbsp; &nbsp; ) Verdadeiro</span>
+                    <span>( &nbsp; &nbsp; ) Falso</span>
+                  </div>
+
+                {% elif q.tipo == 'dissertativa' %}
+                  <div style="margin-top:16px; display:flex; flex-direction:column; gap:10px">
+                    <div style="border-bottom: 1px solid var(--ink-10); height: 24px; width: 100%"></div>
+                    <div style="border-bottom: 1px solid var(--ink-10); height: 24px; width: 100%"></div>
+                    <div style="border-bottom: 1px solid var(--ink-10); height: 24px; width: 100%"></div>
+                    <div style="border-bottom: 1px solid var(--ink-10); height: 24px; width: 100%"></div>
+                    <div style="border-bottom: 1px solid var(--ink-10); height: 24px; width: 100%"></div>
+                  </div>
+
+                {% elif q.tipo == 'lacunas' %}
+                  <!-- Show the raw text with gaps for the student to write in -->
+                  <div style="font-style:italic; background:var(--paper); padding:10px; border-radius:var(--r-sm); font-size:13px; line-height:1.5">
+                    {{ q.dados.texto_com_lacunas }}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
           </div>
         </div>
 
-        <!-- Questions List -->
-        <div style="display:flex; flex-direction:column; gap:12px">
-          {% for q in questoes %}
-            <div class="card" style="position:relative">
-              <div style="position:absolute; top:16px; right:16px; display:flex; gap:6px">
-                <span class="badge badge-gray" style="font-size:10px">{{ q.get_tipo_display }}</span>
-                <span class="badge badge-gray" style="font-size:10px">{{ q.get_dificuldade_display }}</span>
-              </div>
-
-              <div style="font-weight:600; font-size:13.5px; margin-bottom:10px; color:var(--green)">
-                Questão {{ forloop.counter }}
-              </div>
-
-              <div style="font-size:14.5px; line-height:1.6; color:var(--ink); margin-bottom:12px; white-space:pre-wrap; padding-right:150px">{{ q.enunciado }}</div>
-
-              <!-- Options/Answers detail based on question type -->
-              {% if q.tipo == 'multipla_escolha' %}
-                <div style="display:flex; flex-direction:column; gap:6px; margin-left:12px; margin-bottom:8px">
-                  {% for alt in q.dados.alternativas %}
-                    <div style="font-size:13px; line-height:1.4">
-                      <strong>{{ alt.letra }})</strong> {{ alt.texto }}
-                    </div>
-                  {% endfor %}
-                  <div style="font-size:12.5px; color:var(--green); font-weight:600; margin-top:8px; display:flex; align-items:center; gap:4px">
-                    <span style="font-size:16px">✓</span> Gabarito: Alternativa {{ q.dados.gabarito }}
-                  </div>
-                </div>
-
-              {% elif q.tipo == 'verdadeiro_falso' %}
-                <div style="margin-left:12px; margin-bottom:8px; font-size:13px">
-                  <div style="color:var(--green); font-weight:600">
-                    Gabarito / Resposta Correta: {{ q.dados.resposta }} (V = Verdadeiro, F = Falso)
-                  </div>
-                </div>
-
-              {% elif q.tipo == 'dissertativa' %}
-                <div style="margin-left:12px; margin-bottom:8px; font-size:13px; padding:10px; background:var(--paper); border-left:3.5px solid var(--ink-30); border-radius:4px">
-                  <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-60); font-weight:700; margin-bottom:4px">Resposta Esperada:</div>
-                  <div style="color:var(--ink); line-height:1.4; white-space:pre-wrap">{{ q.dados.resposta_esperada }}</div>
-                </div>
-
-              {% elif q.tipo == 'lacunas' %}
-                <div style="display:flex; flex-direction:column; gap:8px; margin-left:12px; margin-bottom:8px; font-size:13px">
-                  <div><strong>Texto com lacunas:</strong></div>
-                  <div style="font-style:italic; background:var(--paper); padding:10px; border-radius:var(--r-sm)">{{ q.dados.texto_com_lacunas }}</div>
-                  <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:4px">
-                    <strong>Gabarito lacunas:</strong>
-                    {% for item in q.dados.respostas %}
-                      <span class="badge badge-gray" style="font-weight:500">{{ item.posicao }}: {{ item.palavra }}</span>
-                    {% endfor %}
-                  </div>
-                </div>
-              {% endif %}
-
-              {% if q.dados.justificativa %}
-                <div style="font-size:11.5px; color:var(--ink-60); margin-top:8px; border-top:1px solid var(--ink-10); padding-top:8px; font-style:italic">
-                  Justificativa: {{ q.dados.justificativa }}
-                </div>
-              {% endif %}
-
+        <!-- TAB CONTENT: GABARITO (PROFESSOR) -->
+        <div id="content-gabarito" class="tab-content" style="display:none">
+          <div class="card" style="border-left: 4px solid var(--amber); border-radius: var(--r-md); margin-bottom: 24px">
+            <div style="font-family:'Playfair Display',serif; font-size:18px; font-weight:700; color:var(--amber); margin-bottom:6px">
+              Gabarito & Respostas da Avaliação
             </div>
-          {% endfor %}
+            <div style="font-size:12.5px; color:var(--ink-60)">
+              Este documento serve como referência de correção para o professor. Contém os gabaritos, respostas esperadas e as respectivas justificativas pedagógicas de cada questão.
+            </div>
+          </div>
+
+          <!-- Questions with answers and justifications -->
+          <div style="display:flex; flex-direction:column; gap:20px">
+            {% for q in questoes %}
+              <div class="card" style="border-radius: var(--r-md); position:relative">
+                <div style="position:absolute; top:16px; right:16px; display:flex; gap:6px">
+                  <span class="badge badge-gray" style="font-size:10px">{{ q.get_tipo_display }}</span>
+                  <span class="badge badge-gray" style="font-size:10px">{{ q.get_dificuldade_display }}</span>
+                </div>
+
+                <div style="font-weight:600; font-size:13.5px; margin-bottom:10px; color:var(--amber)">
+                  Questão {{ forloop.counter }}
+                </div>
+
+                <div style="font-size:14.5px; line-height:1.6; color:var(--ink); margin-bottom:12px; white-space:pre-wrap; padding-right:150px">{{ q.enunciado }}</div>
+
+                {% if q.tipo == 'multipla_escolha' %}
+                  <div style="display:flex; flex-direction:column; gap:6px; margin-left:12px; margin-bottom:8px">
+                    {% for alt in q.dados.alternativas %}
+                      <div style="font-size:13px; line-height:1.4">
+                        <strong>{{ alt.letra }})</strong> {{ alt.texto }}
+                      </div>
+                    {% endfor %}
+                    <div style="font-size:12.5px; color:var(--green); font-weight:600; margin-top:8px; display:flex; align-items:center; gap:4px">
+                      <span style="font-size:16px">✓</span> Gabarito: Alternativa {{ q.dados.gabarito }}
+                    </div>
+                  </div>
+
+                {% elif q.tipo == 'verdadeiro_falso' %}
+                  <div style="margin-left:12px; margin-bottom:8px; font-size:13px">
+                    <div style="color:var(--green); font-weight:600">
+                      Gabarito / Resposta Correta: {{ q.dados.resposta }} (V = Verdadeiro, F = Falso)
+                    </div>
+                  </div>
+
+                {% elif q.tipo == 'dissertativa' %}
+                  <div style="margin-left:12px; margin-bottom:8px; font-size:13px; padding:10px; background:var(--paper); border-left:3.5px solid var(--amber); border-radius:4px">
+                    <div style="font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--ink-60); font-weight:700; margin-bottom:4px">Resposta Esperada:</div>
+                    <div style="color:var(--ink); line-height:1.4; white-space:pre-wrap">{{ q.dados.resposta_esperada }}</div>
+                  </div>
+
+                {% elif q.tipo == 'lacunas' %}
+                  <div style="display:flex; flex-direction:column; gap:8px; margin-left:12px; margin-bottom:8px; font-size:13px">
+                    <div><strong>Texto com lacunas:</strong></div>
+                    <div style="font-style:italic; background:var(--paper); padding:10px; border-radius:var(--r-sm)">{{ q.dados.texto_com_lacunas }}</div>
+                    <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:4px">
+                      <strong>Gabarito lacunas:</strong>
+                      {% for item in q.dados.respostas %}
+                        <span class="badge badge-gray" style="font-weight:500">{{ item.posicao }}: {{ item.palavra }}</span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endif %}
+
+                {% if q.dados.justificativa %}
+                  <div style="font-size:11.5px; color:var(--ink-60); margin-top:8px; border-top:1px solid var(--ink-10); padding-top:8px; font-style:italic">
+                    Justificativa: {{ q.dados.justificativa }}
+                  </div>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
         </div>
 
       </div>
     </div>
   </div>
 </div>
+
+<script>
+  function switchTab(tab) {
+    // Switch tab buttons styling
+    const btnProva = document.getElementById('tab-btn-prova');
+    const btnGabarito = document.getElementById('tab-btn-gabarito');
+    const contentProva = document.getElementById('content-prova');
+    const contentGabarito = document.getElementById('content-gabarito');
+    
+    const btnCopiar = document.getElementById('btn-copiar');
+    const btnDownload = document.getElementById('btn-download');
+
+    if (tab === 'prova') {
+      btnProva.classList.add('active');
+      btnGabarito.classList.remove('active');
+      contentProva.style.display = 'block';
+      contentProva.classList.add('active');
+      contentGabarito.style.display = 'none';
+      contentGabarito.classList.remove('active');
+      
+      // Update href attributes for downloading/copying student version
+      btnCopiar.href = '?copiar=1&gabarito=0';
+      btnDownload.href = '?download=1&gabarito=0';
+    } else {
+      btnGabarito.classList.add('active');
+      btnProva.classList.remove('active');
+      contentGabarito.style.display = 'block';
+      contentGabarito.classList.add('active');
+      contentProva.style.display = 'none';
+      contentProva.classList.remove('active');
+      
+      // Update href attributes for downloading/copying teacher version with answer key
+      btnCopiar.href = '?copiar=1&gabarito=1';
+      btnDownload.href = '?download=1&gabarito=1';
+    }
+  }
+</script>
 {% endblock %}

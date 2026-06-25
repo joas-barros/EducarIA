@@ -618,14 +618,17 @@ def prova_detalhe(request, pk):
     questoes = prova.questoes.all().select_related('ementa')
     
     if 'download' in request.GET or 'copiar' in request.GET:
-        texto = formatar_questoes_para_copia(list(questoes))
-        cabecalho = f"PROVA: {prova.titulo.upper()}\nDISCIPLINA: {prova.disciplina.nome.upper()}\nPROFESSOR(A): {prova.professor.get_full_name().upper()}\nDATA: {prova.criado_em.strftime('%d/%m/%Y')}\n"
+        com_gabarito = request.GET.get('gabarito') == '1'
+        texto = formatar_questoes_para_copia(list(questoes), com_gabarito=com_gabarito)
+        tipo_documento = "GABARITO" if com_gabarito else "PROVA"
+        cabecalho = f"{tipo_documento}: {prova.titulo.upper()}\nDISCIPLINA: {prova.disciplina.nome.upper()}\nPROFESSOR(A): {prova.professor.get_full_name().upper()}\nDATA: {prova.criado_em.strftime('%d/%m/%Y')}\n"
         cabecalho += "="*60 + "\n\n"
         texto_completo = cabecalho + texto
         
         if 'download' in request.GET:
             response = HttpResponse(texto_completo, content_type='text/plain; charset=utf-8')
-            filename = f"prova_{prova.titulo.replace(' ', '_')}.txt"
+            suffix = "gabarito" if com_gabarito else "prova"
+            filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.txt"
             response['Content-Disposition'] = f'attachment; filename="{filename}"'
             return response
             
@@ -633,6 +636,7 @@ def prova_detalhe(request, pk):
             'prova': prova,
             'questoes': questoes,
             'texto': texto_completo,
+            'com_gabarito': com_gabarito,
         })
         
     return render(request, 'app/prova_detalhe.html', {
