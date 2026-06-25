@@ -1,0 +1,418 @@
+{% extends "app/base.html" %}
+{% block title %}Criar Prova — EducarIA{% endblock %}
+
+{% block body %}
+<style>
+  /* Custom styles for tab-style method selection */
+  .method-selector {
+    display: flex;
+    gap: 16px;
+    margin-top: 8px;
+    margin-bottom: 20px;
+  }
+  .method-tab {
+    flex: 1;
+    border: 1.5px solid var(--ink-10);
+    border-radius: var(--r-md);
+    padding: 16px;
+    cursor: pointer;
+    background: var(--white);
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    position: relative;
+  }
+  .method-tab:hover {
+    border-color: var(--green-mid);
+  }
+  .method-tab.active {
+    border-color: var(--green);
+    background-color: var(--green-light);
+    box-shadow: 0 0 0 1px var(--green);
+  }
+  .method-tab input[type="radio"] {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    accent-color: var(--green);
+  }
+  .method-title {
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--ink);
+  }
+  .method-desc {
+    font-size: 11px;
+    color: var(--ink-60);
+    line-height: 1.4;
+  }
+
+  /* Questions list style */
+  .questions-wrapper {
+    border: 1px solid var(--ink-10);
+    border-radius: var(--r-md);
+    max-height: 350px;
+    overflow-y: auto;
+    background: var(--white);
+  }
+  .question-option-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--ink-10);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .question-option-item:last-child {
+    border-bottom: none;
+  }
+  .question-option-item:hover {
+    background: var(--paper);
+  }
+  .question-option-item input[type="checkbox"] {
+    margin-top: 3px;
+    accent-color: var(--green);
+  }
+  .question-option-label {
+    flex: 1;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .question-meta-tags {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+  }
+  .search-wrapper {
+    margin-bottom: 12px;
+    position: relative;
+  }
+  .search-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--ink-30);
+    border-radius: var(--r-md);
+    font-family: inherit;
+    font-size: 12.5px;
+  }
+  .search-input:focus {
+    border-color: var(--green-mid);
+    outline: none;
+  }
+</style>
+
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="provas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'provas' %}" class="breadcrumb">← Minhas provas</a>
+        <div class="page-title">Criar prova</div>
+        <div class="page-sub">Gere uma prova a partir do seu banco de questões</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:800px">
+        <form method="post" id="prova-form">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="error-box" style="background:var(--red-light);color:var(--red);padding:12px;border-radius:var(--r-md);margin-bottom:16px">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="card" style="margin-bottom:16px">
+            <div class="card-title" style="font-size:14px;font-weight:600;margin-bottom:16px">Identificação e Disciplina</div>
+            
+            <div class="field">
+              <label for="id_titulo">{{ form.titulo.label }}</label>
+              {{ form.titulo }}
+              {% for err in form.titulo.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field">
+              <label for="id_disciplina">{{ form.disciplina.label }}</label>
+              {{ form.disciplina }}
+              {% for err in form.disciplina.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+            </div>
+
+            <div class="field" style="margin-top:16px">
+              <label>{{ form.metodo.label }}</label>
+              <div class="method-selector">
+                <div class="method-tab active" data-value="manual">
+                  <input type="radio" name="metodo" value="manual" checked id="metodo_manual">
+                  <span class="method-title">Manual</span>
+                  <span class="method-desc">Escolha cada questão do seu banco de forma manual e personalizada.</span>
+                </div>
+                <div class="method-tab" data-value="automatico">
+                  <input type="radio" name="metodo" value="automatico" id="metodo_automatico">
+                  <span class="method-title">Automático</span>
+                  <span class="method-desc">Defina os critérios e deixe o sistema sortear questões adequadas.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AUTOMATIC SECTION -->
+          <div class="card" id="section-automatico" style="margin-bottom:16px; display:none">
+            <div class="card-title" style="font-size:14px;font-weight:600;margin-bottom:16px">Critérios de Geração Automática</div>
+
+            <div class="row2">
+              <div class="field">
+                <label for="id_dificuldade">{{ form.dificuldade.label }}</label>
+                {{ form.dificuldade }}
+                {% for err in form.dificuldade.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label for="id_ementa">{{ form.ementa.label }}</label>
+                {{ form.ementa }}
+                {% for err in form.ementa.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="id_quantidade">{{ form.quantidade.label }}</label>
+              {{ form.quantidade }}
+              {% for err in form.quantidade.errors %}<div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <!-- MANUAL SECTION -->
+          <div class="card" id="section-manual" style="margin-bottom:16px">
+            <div class="card-title" style="font-size:14px;font-weight:600;margin-bottom:12px">Seleção de Questões do Banco</div>
+
+            <div id="selection-discipline-warning" style="padding:24px;text-align:center;color:var(--ink-60);background:var(--paper);border-radius:var(--r-md)">
+              Selecione uma disciplina acima para listar as questões disponíveis.
+            </div>
+
+            <div id="selection-questions-wrapper" style="display:none">
+              <div class="search-wrapper">
+                <input type="text" id="question-search-input" class="search-input" placeholder="Buscar no enunciado das questões...">
+              </div>
+
+              <div id="question-count-info" style="font-size:11.5px;color:var(--ink-60);margin-bottom:8px">
+                Mostrando 0 de 0 questões disponíveis.
+              </div>
+
+              <div class="questions-wrapper" id="questions-list-container">
+                <!-- Checkboxes injected dynamically by JS -->
+              </div>
+              {% for err in form.questoes.errors %}
+                <div class="field-error" style="color:var(--red);font-size:11px;margin-top:4px">{{ err }}</div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="{% url 'provas' %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary" id="btn-submit-form">Criar prova</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // Parse the JSON data passed from views
+    const allQuestoes = JSON.parse('{{ questoes_json|escapejs }}');
+    const allEmentas = JSON.parse('{{ ementas_json|escapejs }}');
+
+    // DOM Elements
+    const form = document.getElementById('prova-form');
+    const selectDisciplina = document.getElementById('id_disciplina');
+    const selectEmenta = document.getElementById('id_ementa');
+    
+    const tabs = document.querySelectorAll('.method-tab');
+    const sectionManual = document.getElementById('section-manual');
+    const sectionAutomatico = document.getElementById('section-automatico');
+    
+    const warningDiv = document.getElementById('selection-discipline-warning');
+    const questionsWrapper = document.getElementById('selection-questions-wrapper');
+    const questionsContainer = document.getElementById('questions-list-container');
+    const searchInput = document.getElementById('question-search-input');
+    const countInfo = document.getElementById('question-count-info');
+
+    // Method Switcher Tabs
+    tabs.forEach(tab => {
+      tab.addEventListener('click', function() {
+        const val = this.getAttribute('data-value');
+        
+        // Update active tab styling
+        tabs.forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        
+        // Check corresponding radio input
+        const radio = this.querySelector('input[type="radio"]');
+        if (radio) radio.checked = true;
+
+        // Toggle sections visibility
+        if (val === 'manual') {
+          sectionManual.style.display = 'block';
+          sectionAutomatico.style.display = 'none';
+        } else {
+          sectionManual.style.display = 'none';
+          sectionAutomatico.style.display = 'block';
+        }
+      });
+    });
+
+    // Populate ementas select based on selected discipline
+    function updateEmentas(disciplineId) {
+      const originalValue = selectEmenta.value;
+      selectEmenta.innerHTML = '';
+      
+      // Default empty option
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = 'Qualquer ementa';
+      selectEmenta.appendChild(defaultOpt);
+
+      if (!disciplineId) return;
+
+      const filtered = allEmentas.filter(e => e.disciplina_id === disciplineId);
+      filtered.forEach(e => {
+        const opt = document.createElement('option');
+        opt.value = e.id;
+        opt.textContent = e.titulo;
+        if (e.id === originalValue) opt.selected = true;
+        selectEmenta.appendChild(opt);
+      });
+    }
+
+    // Render questions checkboxes dynamically
+    let renderedQuestoes = [];
+    
+    function updateQuestions(disciplineId) {
+      questionsContainer.innerHTML = '';
+      
+      if (!disciplineId) {
+        warningDiv.style.display = 'block';
+        questionsWrapper.style.display = 'none';
+        renderedQuestoes = [];
+        return;
+      }
+
+      warningDiv.style.display = 'none';
+      questionsWrapper.style.display = 'block';
+
+      // Filter questions by selected discipline
+      renderedQuestoes = allQuestoes.filter(q => q.disciplina_id === disciplineId);
+
+      if (renderedQuestoes.length === 0) {
+        questionsContainer.innerHTML = `<div style="padding:24px;text-align:center;color:var(--ink-60)">Nenhuma questão aprovada ou editada para esta disciplina.</div>`;
+        filterAndCount();
+        return;
+      }
+
+      // Generate HTML checkboxes
+      renderedQuestoes.forEach(q => {
+        const item = document.createElement('div');
+        item.className = 'question-option-item';
+        item.setAttribute('data-enunciado', q.enunciado.toLowerCase());
+        item.setAttribute('data-id', q.id);
+
+        item.innerHTML = `
+          <input type="checkbox" name="questoes" value="${q.id}" id="q_chk_${q.id}">
+          <div class="question-option-label">
+            <label for="q_chk_${q.id}" style="cursor:pointer; font-weight: 500">${escapeHtml(q.enunciado)}</label>
+            <div class="question-meta-tags">
+              <span class="badge badge-gray" style="font-size:10px">${escapeHtml(q.tipo_display)}</span>
+              <span class="badge badge-gray" style="font-size:10px">${escapeHtml(q.dificuldade_display)}</span>
+              ${q.ementa_titulo ? `<span class="badge badge-gray" style="font-size:10px; opacity: 0.8">${escapeHtml(q.ementa_titulo)}</span>` : ''}
+            </div>
+          </div>
+        `;
+
+        // Toggle checkbox on row click (excluding clicking label/checkbox directly)
+        item.addEventListener('click', function(e) {
+          if (e.target.tagName !== 'INPUT' && e.target.tagName !== 'LABEL') {
+            const chk = this.querySelector('input[type="checkbox"]');
+            chk.checked = !chk.checked;
+          }
+        });
+
+        questionsContainer.appendChild(item);
+      });
+
+      filterAndCount();
+    }
+
+    // Filter questions based on search input and show count
+    function filterAndCount() {
+      const query = searchInput.value.toLowerCase().trim();
+      const items = questionsContainer.querySelectorAll('.question-option-item');
+      
+      let visible = 0;
+      items.forEach(item => {
+        const text = item.getAttribute('data-enunciado');
+        if (text && text.includes(query)) {
+          item.style.display = 'flex';
+          visible++;
+        } else if (text) {
+          item.style.display = 'none';
+        }
+      });
+
+      if (renderedQuestoes.length > 0) {
+        countInfo.textContent = `Mostrando ${visible} de ${renderedQuestoes.length} questões disponíveis.`;
+      } else {
+        countInfo.textContent = `Mostrando 0 de 0 questões disponíveis.`;
+      }
+    }
+
+    // Helper to escape HTML characters
+    function escapeHtml(text) {
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    // Listen to changes on Discipline selector
+    selectDisciplina.addEventListener('change', function() {
+      const disciplineId = this.value;
+      updateEmentas(disciplineId);
+      updateQuestions(disciplineId);
+    });
+
+    // Listen to changes on Search Input
+    searchInput.addEventListener('input', filterAndCount);
+
+    // Initial setup
+    const initialDiscipline = selectDisciplina.value;
+    updateEmentas(initialDiscipline);
+    updateQuestions(initialDiscipline);
+
+    // Handle form submission and restore state if there are errors
+    const checkedMethod = document.querySelector('input[name="metodo"]:checked');
+    if (checkedMethod) {
+      const val = checkedMethod.value;
+      tabs.forEach(t => {
+        if (t.getAttribute('data-value') === val) {
+          t.classList.add('active');
+        } else {
+          t.classList.remove('active');
+        }
+      });
+      if (val === 'manual') {
+        sectionManual.style.display = 'block';
+        sectionAutomatico.style.display = 'none';
+      } else {
+        sectionManual.style.display = 'none';
+        sectionAutomatico.style.display = 'block';
+      }
+    }
+  })();
+</script>
+{% endblock %}

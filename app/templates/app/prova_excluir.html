@@ -1,0 +1,44 @@
+{% extends "app/base.html" %}
+{% block title %}Excluir prova — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="provas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'prova_detalhe' prova.id %}" class="breadcrumb">← Voltar para a prova</a>
+        <div class="page-title">Excluir prova</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:560px">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px">
+            Excluir esta prova?
+          </div>
+          <div style="font-size:13px;color:var(--ink-60);line-height:1.6;margin-bottom:16px">
+            Esta ação removerá permanentemente a prova do seu histórico. As questões contidas nela continuarão salvas no seu banco de questões normalmente.
+          </div>
+
+          <div style="background:var(--paper);border-radius:var(--r-md);padding:14px;margin-bottom:18px;font-size:12.5px;line-height:1.6">
+            <strong>Título:</strong> {{ prova.titulo }}<br>
+            <strong>Disciplina:</strong> {{ prova.disciplina.nome }}<br>
+            <strong>Quantidade de questões:</strong> {{ prova.questoes.count }}
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <a href="{% url 'prova_detalhe' prova.id %}" class="btn">Cancelar</a>
+              <button type="submit" class="btn btn-danger" style="border-color: #e8a8a8; color: var(--red);">Confirmar exclusão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
