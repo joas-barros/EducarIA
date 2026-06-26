@@ -16,6 +16,8 @@ urlpatterns = [
 
     path('disciplinas/<uuid:disciplina_pk>/ementas/nova/', views.ementa_nova, name='ementa_nova'),
     path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:pk>/excluir/', views.ementa_excluir, name='ementa_excluir'),
+    path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:ementa_pk>/infografico/gerar/', views.infografico_gerar, name='infografico_gerar'),
+    path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:ementa_pk>/infografico/', views.infografico_visualizar, name='infografico_visualizar'),
 
     path('questoes/', views.questoes_list, name='questoes'),
     path('questoes/gerar/', views.questoes_gerar, name='questoes_gerar'),

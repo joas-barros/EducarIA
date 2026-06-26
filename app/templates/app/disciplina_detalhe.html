@@ -60,6 +60,11 @@
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;margin-left:8px">
                   <span class="badge badge-green">Ativa</span>
+                  {% if ementa.infografico and ementa.infografico.status == 'gerado' %}
+                    <a href="{% url 'infografico_visualizar' disciplina.id ementa.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Visualizar infográfico</a>
+                  {% else %}
+                    <a href="{% url 'infografico_gerar' disciplina.id ementa.id %}" class="btn btn-primary btn-sm" style="padding:4px 8px">Gerar infográfico</a>
+                  {% endif %}
                   {% if ementa.tipo_fonte == 'arquivo' and ementa.arquivo %}
                     <a href="{{ ementa.arquivo.url }}" class="btn btn-ghost btn-sm"
                        download title="Baixar arquivo" style="padding:4px 8px">↓</a>

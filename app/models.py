@@ -123,6 +123,52 @@ class Ementa(models.Model):
             return f'{kb:.0f} KB'
         return f'{kb / 1024:.1f} MB'
 
+    @property
+    def possui_infografico(self):
+        return hasattr(self, 'infografico') and self.infografico is not None
+
+
+def infografico_upload_path(instance, filename):
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'bin'
+    return f'infograficos/{instance.ementa.disciplina_id}/{instance.ementa_id}/{instance.id}.{ext}'
+
+
+class Infografico(models.Model):
+    STATUS_PENDENTE = 'pendente'
+    STATUS_GERADO = 'gerado'
+    STATUS_ERRO = 'erro'
+
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE, 'Pendente'),
+        (STATUS_GERADO, 'Gerado'),
+        (STATUS_ERRO, 'Erro'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    ementa = models.OneToOneField(
+        Ementa,
+        on_delete=models.CASCADE,
+        related_name='infografico',
+    )
+    professor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='infograficos',
+    )
+    arquivo = models.FileField(upload_to=infografico_upload_path, blank=True, null=True)
+    texto_resumo = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDENTE)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Infográfico'
+        verbose_name_plural = 'Infográficos'
+
+    def __str__(self):
+        return f'Infográfico de {self.ementa.titulo}'
+
 
 class QuestaoQuerySet(models.QuerySet):
     def ativas(self):
