@@ -1,0 +1,35 @@
+{% extends "app/base.html" %}
+{% block title %}Gerando infográfico — EducarIA{% endblock %}
+
+{% block body %}
+<div class="login-wrap">
+  <div class="login-deco"></div>
+  <div class="login-deco2"></div>
+
+  <div class="login-card" style="width:540px;text-align:center">
+    <div class="login-logo">Educar<em>IA</em></div>
+    <div class="login-tagline" style="margin-bottom:22px">Estamos criando o infográfico com base na ementa. Aguarde alguns instantes.</div>
+
+    {% if erro %}
+      <div class="error-box" style="text-align:left">{{ erro }}</div>
+      <div style="margin-top:18px">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="btn btn-primary">Voltar</a>
+      </div>
+    {% else %}
+      <div style="display:flex;justify-content:center;margin:18px 0 10px">
+        <div class="loader-ring"></div>
+      </div>
+      <div class="warn-box" style="text-align:left">
+        O sistema está montando o material visual. Assim que terminar, você verá a imagem pronta para consulta e download.
+      </div>
+      {% if redirect_url %}
+        <script>
+          setTimeout(function () {
+            window.location.href = "{{ redirect_url }}";
+          }, 700);
+        </script>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

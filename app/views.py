@@ -2,6 +2,7 @@ from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Count, Q
+from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
@@ -12,8 +13,8 @@ from .forms import (
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
     EmentaForm, GeracaoQuestoesForm, get_questao_form_class, initial_questao_form, ProvaForm,
 )
-from .models import Disciplina, Ementa, LoteGeracaoQuestao, Questao, Prova
-from .services.ia import gerar_payload_questoes_gemini
+from .models import Disciplina, Ementa, Infografico, LoteGeracaoQuestao, Questao, Prova
+from .services.ia import gerar_payload_questoes_gemini, gerar_infografico_huggingface
 from .services.questoes import (
     aprovar_questao,
     aprovar_todas_questoes,
@@ -159,7 +160,7 @@ def disciplinas_list(request):
 @login_required
 def disciplina_detalhe(request, pk):
     disciplina = get_object_or_404(Disciplina, id=pk, professor=request.user)
-    ementas = disciplina.ementas.all()
+    ementas = disciplina.ementas.select_related('infografico').all()
     questoes_recentes = (
         disciplina.questoes
         .filter(ativa=True, status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA])
@@ -286,6 +287,64 @@ def ementa_excluir(request, disciplina_pk, pk):
     return render(request, 'app/ementa_excluir.html', {
         'ementa': ementa,
         'disciplina': disciplina,
+    })
+
+
+@login_required
+def infografico_gerar(request, disciplina_pk, ementa_pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+    ementa = get_object_or_404(Ementa, id=ementa_pk, disciplina=disciplina)
+    infografico, _ = Infografico.objects.get_or_create(
+        ementa=ementa,
+        defaults={'professor': request.user, 'status': Infografico.STATUS_PENDENTE},
+    )
+    infografico.status = Infografico.STATUS_PENDENTE
+    infografico.save(update_fields=['status', 'atualizado_em'])
+
+    try:
+        resultado = gerar_infografico_huggingface(
+            disciplina_id=disciplina.id,
+            disciplina_nome=disciplina.nome,
+            ementa_id=ementa.id,
+            ementa_titulo=ementa.titulo,
+            ementa_texto=(ementa.texto_colado if ementa.tipo_fonte == 'texto_colado' else ''),
+            descricao=ementa.descricao,
+            orientacao_visual=disciplina.config_ia.get('observacoes_ia') if disciplina.config_ia else None,
+        )
+    except Exception as exc:
+        infografico.status = Infografico.STATUS_ERRO
+        infografico.save(update_fields=['status', 'atualizado_em'])
+        return render(request, 'app/infografico_loading.html', {
+            'erro': f'Não foi possível gerar o infográfico: {exc}',
+            'ementa': ementa,
+            'disciplina': disciplina,
+        })
+
+    infografico.texto_resumo = resultado.get('texto_resumo', '')
+    infografico.arquivo.save(
+        resultado['filename'],
+        ContentFile(resultado['imagem_bytes']),
+        save=False,
+    )
+    infografico.status = Infografico.STATUS_GERADO
+    infografico.save()
+
+    return render(request, 'app/infografico_loading.html', {
+        'redirect_url': f"/disciplinas/{disciplina.id}/ementas/{ementa.id}/infografico/",
+        'ementa': ementa,
+        'disciplina': disciplina,
+    })
+
+
+@login_required
+def infografico_visualizar(request, disciplina_pk, ementa_pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+    ementa = get_object_or_404(Ementa, id=ementa_pk, disciplina=disciplina)
+    infografico = getattr(ementa, 'infografico', None)
+    return render(request, 'app/infografico_visualizar.html', {
+        'disciplina': disciplina,
+        'ementa': ementa,
+        'infografico': infografico,
     })
 
 
