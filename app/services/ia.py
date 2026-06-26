@@ -1,8 +1,17 @@
 import json
+import os
+import re
+import unicodedata
+from io import BytesIO
 from google import genai
 from google.genai import types
+from huggingface_hub import InferenceClient
 
 client = genai.Client()
+HF_CLIENT = InferenceClient(
+    provider='auto',
+    token=os.getenv('HF_TOKEN'),
+)
 
 def gerar_payload_questoes_gemini(disciplina_id, disciplina_nome, ementa_id, ementa_texto, instrucao, tipo, dificuldade, quantidade):
     
@@ -61,3 +70,41 @@ def gerar_payload_questoes_gemini(disciplina_id, disciplina_nome, ementa_id, eme
     
     # O retorno já será um dicionário Python pronto para ser enviado via HTTP ou processado no backend
     return json.loads(response.text)
+
+
+def _normalizar_prompt_hf(texto):
+    texto = unicodedata.normalize('NFKD', texto)
+    texto = texto.encode('ascii', 'ignore').decode('ascii')
+    texto = texto.replace('"', '').replace("'", '')
+    texto = re.sub(r'\s+', ' ', texto).strip()
+    return texto
+
+
+def gerar_infografico_huggingface(*, disciplina_id, disciplina_nome, ementa_id, ementa_titulo, ementa_texto, descricao='', orientacao_visual=None):
+    prompt = (
+        f"Crie um infografico educacional com base na ementa abaixo. "
+        f"Disciplina: {disciplina_nome}. "
+        f"Ementa: {ementa_titulo}. "
+        f"Descricao complementar: {descricao or 'Nao informada'}. "
+        f"Orientacao visual: {orientacao_visual or 'Visual limpo, claro, pedagogico e facil de ler'}. "
+        f"Conteudo base: {ementa_texto}. "
+        f"Requisitos: destaque os principais topicos da ementa, use linguagem visual simples e confiavel, evite excesso de texto, priorize hierarquia visual e leitura rapida, o resultado deve ser apropriado para uso em sala de aula."
+    )
+    prompt = _normalizar_prompt_hf(prompt)
+
+    image = HF_CLIENT.text_to_image(
+        prompt=prompt,
+        model='black-forest-labs/FLUX.1-schnell',
+    )
+
+    buffer = BytesIO()
+    image.save(buffer, format='PNG')
+    buffer.seek(0)
+
+    return {
+        'texto_resumo': '',
+        'imagem_bytes': buffer.read(),
+        'filename': f'infografico-{ementa_id}.png',
+        'disciplina_id': str(disciplina_id),
+        'ementa_id': str(ementa_id),
+    }
