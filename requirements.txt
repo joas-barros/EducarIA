@@ -7,3 +7,4 @@ django-filter
 python-dotenv
 google-genai
 xhtml2pdf
+huggingface_hub
