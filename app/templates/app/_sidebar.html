@@ -51,6 +51,13 @@
       </svg>
       Banco de questões
     </a>
+    <a href="{% url 'flashcards' %}" class="sb-item {% if active_page == 'flashcards' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="2" width="10" height="12" rx="1.5"/>
+        <path d="M5.5 5h5M5.5 8h5M5.5 11h3"/>
+      </svg>
+      Flashcards
+    </a>
     <a href="{% url 'provas' %}" class="sb-item {% if active_page == 'provas' %}active{% endif %}">
       <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M3 2h10l2 2v10H3V2z"/>

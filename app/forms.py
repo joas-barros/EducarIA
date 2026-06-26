@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 
-from .models import Disciplina, Ementa, Questao, Prova
+from .models import Disciplina, Ementa, LoteFlashcard, Questao, Prova
 from .services.questoes import validar_dados_questao
 
 Professor = get_user_model()
@@ -74,10 +74,6 @@ class CadastroStep2Form(forms.Form):
     nivel_ensino = forms.ChoiceField(
         choices=NIVEL_CHOICES,
         label='Nível de ensino',
-    )
-    trabalha_com_idiomas = forms.BooleanField(
-        required=False,
-        label='Você trabalha com idiomas?',
     )
 
 
@@ -185,16 +181,6 @@ class DisciplinaStep1Form(forms.Form):
         required=False, min_value=1, label='Nº estimado de alunos',
         widget=forms.NumberInput(attrs={'placeholder': 'Ex: 32'}),
     )
-    periodo_inicio = forms.DateField(
-        required=False,
-        widget=forms.DateInput(attrs={'type': 'date'}),
-        label='Início do período',
-    )
-    periodo_fim = forms.DateField(
-        required=False,
-        widget=forms.DateInput(attrs={'type': 'date'}),
-        label='Fim do período',
-    )
 
 
 class DisciplinaStep2Form(forms.Form):
@@ -224,12 +210,6 @@ class DisciplinaEditForm(forms.Form):
     turno = forms.ChoiceField(choices=TURNO_DISCIPLINA_CHOICES, required=False, label='Turno')
     num_alunos_estimado = forms.IntegerField(
         required=False, min_value=1, label='Nº estimado de alunos',
-    )
-    periodo_inicio = forms.DateField(
-        required=False, widget=forms.DateInput(attrs={'type': 'date'}), label='Início do período',
-    )
-    periodo_fim = forms.DateField(
-        required=False, widget=forms.DateInput(attrs={'type': 'date'}), label='Fim do período',
     )
     dificuldade_padrao = forms.ChoiceField(
         choices=DIFICULDADE_IA_CHOICES, required=False, label='Dificuldade padrão das questões',
@@ -667,3 +647,70 @@ class ProvaForm(forms.Form):
                 self.add_error(None, 'Você deve definir a quantidade maior do que 0 para pelo menos um dos níveis de dificuldade.')
 
         return cleaned
+
+
+class LoteFlashcardForm(forms.Form):
+    ementa = forms.ModelChoiceField(
+        queryset=Ementa.objects.none(),
+        label='Ementa',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    questoes = forms.ModelMultipleChoiceField(
+        queryset=Questao.objects.none(),
+        label='Questões',
+        widget=forms.CheckboxSelectMultiple,
+    )
+
+    def __init__(self, professor, *args, instance=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.professor = professor
+        self.instance = instance
+        self.fields['ementa'].queryset = Ementa.objects.filter(
+            disciplina__professor=professor,
+        ).select_related('disciplina')
+        self.fields['questoes'].queryset = Questao.objects.banco().do_professor(
+            professor,
+        ).select_related('disciplina', 'ementa')
+
+        if instance and not self.is_bound:
+            self.initial['ementa'] = instance.ementa_id
+            self.initial['questoes'] = list(instance.questoes.values_list('id', flat=True))
+
+    def clean(self):
+        cleaned = super().clean()
+        ementa = cleaned.get('ementa')
+        questoes = list(cleaned.get('questoes') or [])
+
+        if not ementa:
+            return cleaned
+
+        lote_existente = LoteFlashcard.objects.filter(ementa=ementa).first()
+        if lote_existente and (not self.instance or lote_existente.id != self.instance.id):
+            self.add_error('ementa', 'Esta ementa já possui um lote de flashcards.')
+
+        if not questoes:
+            self.add_error('questoes', 'Selecione pelo menos uma questão.')
+            return cleaned
+
+        for questao in questoes:
+            if questao.ementa_id != ementa.id:
+                self.add_error('questoes', 'Todas as questões selecionadas devem pertencer à ementa escolhida.')
+                break
+
+        return cleaned
+
+    def save(self):
+        ementa = self.cleaned_data['ementa']
+        questoes = list(self.cleaned_data['questoes'])
+        lote = self.instance or LoteFlashcard(
+            professor=self.professor,
+            disciplina=ementa.disciplina,
+            ementa=ementa,
+        )
+        lote.professor = self.professor
+        lote.disciplina = ementa.disciplina
+        lote.ementa = ementa
+        lote.quantidade_recebida = len(questoes)
+        lote.save()
+        lote.questoes.set(questoes)
+        return lote

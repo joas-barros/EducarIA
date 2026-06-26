@@ -80,19 +80,6 @@
           </div>
         </div>
 
-        <div class="row2">
-          <div class="field">
-            <label>Início do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-            <input class="inp" type="date" name="{{ wizard.form.periodo_inicio.html_name }}"
-                   value="{{ wizard.form.periodo_inicio.value|default:'' }}">
-          </div>
-          <div class="field">
-            <label>Fim do período <span style="font-weight:400;text-transform:none;letter-spacing:0">(opcional)</span></label>
-            <input class="inp" type="date" name="{{ wizard.form.periodo_fim.html_name }}"
-                   value="{{ wizard.form.periodo_fim.value|default:'' }}">
-          </div>
-        </div>
-
       {# STEP 2 — Preferências de IA #}
       {% elif wizard.steps.current == 'config_ia' %}
         <div style="background:var(--green-light);border-radius:var(--r-md);padding:12px 14px;margin-bottom:18px;font-size:12px;color:var(--green-dark)">

@@ -2,6 +2,7 @@ import uuid
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models import Q
 from django.utils import timezone
 
 
@@ -18,6 +19,7 @@ class Professor(AbstractUser):
         verbose_name_plural = 'Professores'
 
     def __str__(self):
+        return f'{self.disciplina.nome} — {self.criado_em:%d/%m/%Y %H:%M}'
         return self.get_full_name() or self.email
 
 
@@ -216,6 +218,52 @@ class LoteGeracaoQuestao(models.Model):
         indexes = [
             models.Index(fields=['professor', '-criado_em'], name='lote_q_prof_criado_idx'),
             models.Index(fields=['disciplina', '-criado_em'], name='lote_q_disc_criado_idx'),
+        ]
+
+    def __str__(self):
+        return f'{self.disciplina.nome} — {self.criado_em:%d/%m/%Y %H:%M}'
+
+
+class LoteFlashcard(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    professor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='lotes_flashcard',
+    )
+    disciplina = models.ForeignKey(
+        Disciplina,
+        on_delete=models.CASCADE,
+        related_name='lotes_flashcard',
+    )
+    ementa = models.ForeignKey(
+        Ementa,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='lotes_flashcard',
+    )
+    questoes = models.ManyToManyField(
+        'Questao',
+        related_name='lotes_flashcard',
+    )
+    quantidade_recebida = models.PositiveSmallIntegerField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Lote de flashcard'
+        verbose_name_plural = 'Lotes de flashcard'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['ementa'],
+                condition=Q(ementa__isnull=False),
+                name='unique_lote_flashcard_por_ementa',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['professor', '-criado_em'], name='lote_f_prof_criado_idx'),
+            models.Index(fields=['disciplina', '-criado_em'], name='lote_f_disc_criado_idx'),
         ]
 
     def __str__(self):

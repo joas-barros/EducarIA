@@ -1,7 +1,7 @@
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 
-from app.models import LoteGeracaoQuestao, Questao
+from app.models import LoteFlashcard, LoteGeracaoQuestao, Questao
 
 
 def _erro(mensagem, codigo='dados_invalidos', campo=None):
@@ -245,6 +245,63 @@ def linhas_dados_questao(questao):
         linhas.append({'rotulo': 'Justificativa', 'valor': justificativa})
 
     return linhas
+
+
+def resposta_flashcard_questao(questao):
+    dados = questao.dados or {}
+    if questao.tipo == Questao.TIPO_MULTIPLA_ESCOLHA:
+        return f"Gabarito: {dados.get('gabarito', '')}"
+    if questao.tipo == Questao.TIPO_VERDADEIRO_FALSO:
+        resposta = {'V': 'Verdadeiro', 'F': 'Falso'}.get(dados.get('resposta', ''), '')
+        return f"Resposta: {resposta}"
+    if questao.tipo == Questao.TIPO_DISSERTATIVA:
+        return dados.get('resposta_esperada', '')
+    if questao.tipo == Questao.TIPO_LACUNAS:
+        return '\n'.join(
+            f"{item.get('posicao')}. {item.get('palavra')}"
+            for item in dados.get('respostas', [])
+        )
+    return ''
+
+
+def criar_lote_flashcard(*, professor, disciplina, ementa=None, questoes=None):
+    if disciplina.professor_id != professor.id:
+        raise PermissionDenied('Disciplina não pertence ao professor autenticado.')
+
+    if not ementa:
+        raise ValidationError('Selecione questões vinculadas a uma única ementa para criar flashcards.')
+
+    if ementa and ementa.disciplina_id != disciplina.id:
+        raise ValidationError('Ementa não pertence à disciplina informada.')
+
+    questoes = list(questoes or [])
+    questoes = [
+        q for q in questoes
+        if (
+            q.ativa
+            and q.disciplina_id == disciplina.id
+            and q.ementa_id == ementa.id
+            and q.status in [Questao.STATUS_APROVADA, Questao.STATUS_EDITADA]
+        )
+    ]
+    if not questoes:
+        return None
+
+    lote, _ = LoteFlashcard.objects.get_or_create(
+        ementa=ementa,
+        defaults={
+            'professor': professor,
+            'disciplina': disciplina,
+            'quantidade_recebida': len(questoes),
+        },
+    )
+    if lote.professor_id != professor.id:
+        raise PermissionDenied('Flashcard não pertence ao professor autenticado.')
+    lote.disciplina = disciplina
+    lote.quantidade_recebida = len(questoes)
+    lote.save(update_fields=['disciplina', 'quantidade_recebida'])
+    lote.questoes.set(questoes)
+    return lote
 
 
 def formatar_questoes_para_copia(questoes, com_gabarito=True):

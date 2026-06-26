@@ -1,28 +1,34 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.exceptions import ValidationError
 from django.db.models import Count, Q
 from django.core.files.base import ContentFile
 from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 from formtools.wizard.views import SessionWizardView
+import json
 
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
-    EmentaForm, GeracaoQuestoesForm, get_questao_form_class, initial_questao_form, ProvaForm,
+    EmentaForm, GeracaoQuestoesForm, get_questao_form_class, initial_questao_form,
+    LoteFlashcardForm, ProvaForm,
 )
-from .models import Disciplina, Ementa, Infografico, LoteGeracaoQuestao, Questao, Prova
+from .models import Disciplina, Ementa, Infografico, LoteFlashcard, LoteGeracaoQuestao, Questao, Prova
 from .services.ia import gerar_payload_questoes_gemini, gerar_infografico_huggingface
 from .services.questoes import (
     aprovar_questao,
     aprovar_todas_questoes,
     editar_e_aprovar_questao,
     criar_lote_questoes,
+    criar_lote_flashcard,
     formatar_questoes_para_copia,
     linhas_dados_questao,
     rejeitar_questao,
+    resposta_flashcard_questao,
 )
 
 Professor = get_user_model()
@@ -50,7 +56,6 @@ class CadastroWizardView(SessionWizardView):
             first_name=data['nome'],
             last_name=data['sobrenome'],
             password=data['senha'],
-            trabalha_com_idiomas=data.get('trabalha_com_idiomas', False),
         )
 
         # Auto-criação da Disciplina inicial (spec §1.1)
@@ -134,8 +139,6 @@ class DisciplinaCreateView(LoginRequiredMixin, SessionWizardView):
             serie_ano=data.get('serie_ano', ''),
             turno=data.get('turno', ''),
             num_alunos_estimado=data.get('num_alunos_estimado'),
-            periodo_inicio=data.get('periodo_inicio'),
-            periodo_fim=data.get('periodo_fim'),
             config_ia=config_ia,
         )
         return redirect('disciplinas')
@@ -160,7 +163,18 @@ def disciplinas_list(request):
 @login_required
 def disciplina_detalhe(request, pk):
     disciplina = get_object_or_404(Disciplina, id=pk, professor=request.user)
-    ementas = disciplina.ementas.select_related('infografico').all()
+    ementas = list(disciplina.ementas.select_related('infografico').all())
+    lotes_flashcard = (
+        disciplina.lotes_flashcard
+        .select_related('ementa')
+        .order_by('-criado_em')
+    )
+    flashcards_por_ementa = {}
+    for lote in lotes_flashcard:
+        if lote.ementa_id and str(lote.ementa_id) not in flashcards_por_ementa:
+            flashcards_por_ementa[str(lote.ementa_id)] = lote
+    for ementa in ementas:
+        ementa.flashcard_lote = flashcards_por_ementa.get(str(ementa.id))
     questoes_recentes = (
         disciplina.questoes
         .filter(ativa=True, status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA])
@@ -174,6 +188,7 @@ def disciplina_detalhe(request, pk):
     return render(request, 'app/disciplina_detalhe.html', {
         'disciplina': disciplina,
         'ementas': ementas,
+        'lotes_flashcard': lotes_flashcard,
         'questoes_recentes': questoes_recentes,
         'num_questoes': num_questoes,
     })
@@ -193,8 +208,6 @@ def disciplina_editar(request, pk):
             disciplina.serie_ano = d.get('serie_ano', '')
             disciplina.turno = d.get('turno', '')
             disciplina.num_alunos_estimado = d.get('num_alunos_estimado')
-            disciplina.periodo_inicio = d.get('periodo_inicio')
-            disciplina.periodo_fim = d.get('periodo_fim')
 
             if d.get('dificuldade_padrao') or d.get('tipos_preferidos') or d.get('observacoes_ia'):
                 disciplina.config_ia = {
@@ -214,8 +227,6 @@ def disciplina_editar(request, pk):
             'serie_ano': disciplina.serie_ano,
             'turno': disciplina.turno,
             'num_alunos_estimado': disciplina.num_alunos_estimado,
-            'periodo_inicio': disciplina.periodo_inicio,
-            'periodo_fim': disciplina.periodo_fim,
             'dificuldade_padrao': config.get('dificuldade_padrao', 'mix'),
             'tipos_preferidos': config.get('tipos_preferidos', []),
             'observacoes_ia': config.get('observacoes_ia', ''),
@@ -287,6 +298,152 @@ def ementa_excluir(request, disciplina_pk, pk):
     return render(request, 'app/ementa_excluir.html', {
         'ementa': ementa,
         'disciplina': disciplina,
+    })
+
+
+@login_required
+@require_POST
+def flashcards_criar(request):
+    ids = request.POST.getlist('questoes')
+    questoes = list(
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .filter(id__in=ids)
+        .select_related('disciplina', 'ementa')
+    )
+    if not questoes:
+        messages.error(request, 'Selecione pelo menos uma questão para criar flashcards.')
+        return redirect('questoes')
+
+    disciplina = questoes[0].disciplina
+    if any(q.disciplina_id != disciplina.id for q in questoes):
+        messages.error(request, 'Selecione questões de uma única disciplina.')
+        return redirect('questoes')
+
+    ementas = {q.ementa_id for q in questoes}
+    if len(ementas) != 1 or None in ementas:
+        messages.error(request, 'Selecione questões vinculadas a uma única ementa.')
+        return redirect('questoes')
+    ementa = questoes[0].ementa
+
+    try:
+        lote = criar_lote_flashcard(
+            professor=request.user,
+            disciplina=disciplina,
+            ementa=ementa,
+            questoes=questoes,
+        )
+    except ValidationError as exc:
+        messages.error(request, '; '.join(exc.messages))
+        return redirect('questoes')
+    if not lote:
+        messages.error(request, 'Nenhuma questão válida foi encontrada para criar flashcards.')
+        return redirect('questoes')
+    return redirect('flashcards_lote', pk=lote.id)
+
+
+@login_required
+def flashcards_list(request):
+    lotes = (
+        LoteFlashcard.objects.filter(professor=request.user)
+        .select_related('disciplina', 'ementa')
+        .prefetch_related('questoes')
+    )
+    return render(request, 'app/flashcards.html', {
+        'lotes': lotes,
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_novo(request):
+    if request.method == 'POST':
+        form = LoteFlashcardForm(request.user, request.POST)
+        if form.is_valid():
+            lote = form.save()
+            return redirect('flashcards_lote', pk=lote.id)
+    else:
+        initial = {}
+        ementa_id = request.GET.get('ementa')
+        if ementa_id:
+            initial['ementa'] = ementa_id
+        form = LoteFlashcardForm(request.user, initial=initial)
+
+    return render(request, 'app/flashcard_form.html', {
+        'form': form,
+        'titulo': 'Novo flashcard',
+        'subtitulo': 'Crie um lote a partir das questões de uma ementa.',
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_lote(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    questoes = list(lote.questoes.filter(ativa=True).order_by('criado_em'))
+    if not questoes:
+        return render(request, 'app/flashcards_lote.html', {
+            'lote': lote,
+            'questoes': [],
+            'total': 0,
+        })
+    flashcards = []
+    for questao in questoes:
+        flashcards.append({
+            'id': str(questao.id),
+            'frente': questao.enunciado,
+            'verso': resposta_flashcard_questao(questao),
+        })
+    return render(request, 'app/flashcards_lote.html', {
+        'lote': lote,
+        'questoes': flashcards,
+        'primeiro_flashcard': flashcards[0],
+        'flashcards_json': flashcards,
+        'total': len(flashcards),
+    })
+
+
+@login_required
+def flashcards_editar(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa').prefetch_related('questoes'),
+        id=pk,
+        professor=request.user,
+    )
+    if request.method == 'POST':
+        form = LoteFlashcardForm(request.user, request.POST, instance=lote)
+        if form.is_valid():
+            lote = form.save()
+            return redirect('flashcards_lote', pk=lote.id)
+    else:
+        form = LoteFlashcardForm(request.user, instance=lote)
+
+    return render(request, 'app/flashcard_form.html', {
+        'form': form,
+        'titulo': 'Editar flashcard',
+        'subtitulo': 'Atualize a ementa e as questões deste lote.',
+        'lote': lote,
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_excluir(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    if request.method == 'POST':
+        lote.delete()
+        return redirect('flashcards')
+    return render(request, 'app/flashcard_excluir.html', {
+        'lote': lote,
+        'active_page': 'flashcards',
     })
 
 

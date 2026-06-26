@@ -1,0 +1,64 @@
+{% extends "app/base.html" %}
+{% block title %}{{ titulo }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="flashcards" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% if lote %}{% url 'flashcards_lote' lote.id %}{% else %}{% url 'flashcards' %}{% endif %}" class="breadcrumb">← Flashcards</a>
+        <div class="page-title">{{ titulo }}</div>
+        <div class="page-sub">{{ subtitulo }}</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:860px">
+        <form method="post">
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="error-box">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Ementa</div>
+            <div class="field">
+              <label>{{ form.ementa.label }}</label>
+              {{ form.ementa }}
+              {% for err in form.ementa.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Questões do flashcard</div>
+            {% for err in form.questoes.errors %}<div class="field-error" style="margin-bottom:10px">{{ err }}</div>{% endfor %}
+            <div style="display:flex;flex-direction:column;gap:8px">
+              {% for checkbox in form.questoes %}
+                <label class="check-row" style="background:var(--paper);border:1px solid var(--ink-10);border-radius:var(--r-md);padding:10px 12px">
+                  {{ checkbox.tag }}
+                  <span>{{ checkbox.choice_label }}</span>
+                </label>
+              {% empty %}
+                <div class="empty-state" style="padding:20px 0">
+                  <div class="empty-state-title">Nenhuma questão disponível</div>
+                  <div class="empty-state-sub">Cadastre ou aprove questões antes de criar flashcards.</div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="{% if lote %}{% url 'flashcards_lote' lote.id %}{% else %}{% url 'flashcards' %}{% endif %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Salvar flashcard</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

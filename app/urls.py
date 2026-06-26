@@ -20,6 +20,12 @@ urlpatterns = [
     path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:ementa_pk>/infografico/', views.infografico_visualizar, name='infografico_visualizar'),
 
     path('questoes/', views.questoes_list, name='questoes'),
+    path('flashcards/', views.flashcards_list, name='flashcards'),
+    path('flashcards/novo/', views.flashcards_novo, name='flashcards_novo'),
+    path('flashcards/criar/', views.flashcards_criar, name='flashcards_criar'),
+    path('flashcards/lotes/<uuid:pk>/', views.flashcards_lote, name='flashcards_lote'),
+    path('flashcards/lotes/<uuid:pk>/editar/', views.flashcards_editar, name='flashcards_editar'),
+    path('flashcards/lotes/<uuid:pk>/excluir/', views.flashcards_excluir, name='flashcards_excluir'),
     path('questoes/gerar/', views.questoes_gerar, name='questoes_gerar'),
     path('questoes/gerar/processando/', views.questoes_gerar_processando, name='questoes_gerar_processando'),
     path('questoes/revisoes/pendentes/', views.questoes_revisoes_pendentes, name='questoes_revisoes_pendentes'),

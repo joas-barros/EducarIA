@@ -89,24 +89,6 @@
             {% for err in wizard.form.nivel_ensino.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
           </div>
         </div>
-        <div class="field">
-          <label>Você trabalha com idiomas?</label>
-          <div style="display:flex;gap:8px;margin-top:4px">
-            <label class="src-opt{% if wizard.form.trabalha_com_idiomas.value %} sel{% endif %}" style="flex:1;cursor:pointer">
-              <input type="radio" name="{{ wizard.form.trabalha_com_idiomas.html_name }}" value="True"
-                     {% if wizard.form.trabalha_com_idiomas.value %}checked{% endif %} style="display:none">
-              <div class="src-opt-title">Sim</div>
-              <div class="src-opt-sub">Inglês, espanhol...</div>
-            </label>
-            <label class="src-opt{% if not wizard.form.trabalha_com_idiomas.value %} sel{% endif %}" style="flex:1;cursor:pointer">
-              <input type="radio" name="{{ wizard.form.trabalha_com_idiomas.html_name }}" value=""
-                     {% if not wizard.form.trabalha_com_idiomas.value %}checked{% endif %} style="display:none">
-              <div class="src-opt-title">Não</div>
-              <div class="src-opt-sub">Outras disciplinas</div>
-            </label>
-          </div>
-        </div>
-
       {# STEP 3 — Acesso #}
       {% elif wizard.steps.current == 'acesso' %}
         <div class="field">

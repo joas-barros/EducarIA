@@ -65,6 +65,11 @@
                   {% else %}
                     <a href="{% url 'infografico_gerar' disciplina.id ementa.id %}" class="btn btn-primary btn-sm" style="padding:4px 8px">Gerar infográfico</a>
                   {% endif %}
+                  {% if ementa.flashcard_lote %}
+                    <a href="{% url 'flashcards_lote' ementa.flashcard_lote.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Ver flashcards</a>
+                  {% else %}
+                    <a href="{% url 'questoes' %}?ementa={{ ementa.id }}" class="btn btn-primary btn-sm" style="padding:4px 8px">Criar flashcards</a>
+                  {% endif %}
                   {% if ementa.tipo_fonte == 'arquivo' and ementa.arquivo %}
                     <a href="{{ ementa.arquivo.url }}" class="btn btn-ghost btn-sm"
                        download title="Baixar arquivo" style="padding:4px 8px">↓</a>
@@ -80,6 +85,48 @@
               <div class="empty-state-icon">📄</div>
               <div class="empty-state-title">Nenhuma ementa adicionada</div>
               <div class="empty-state-sub">Faça upload da ementa para começar a gerar questões.</div>
+            </div>
+          {% endif %}
+        </div>
+
+        {# Card: Flashcards #}
+        <div class="card">
+          <div class="card-header" style="margin-bottom:{% if lotes_flashcard %}12px{% else %}0{% endif %}">
+            <div class="card-title" style="margin-bottom:0">Flashcards</div>
+            <span class="badge badge-gray">{{ lotes_flashcard|length }} lote{{ lotes_flashcard|length|pluralize:",s" }}</span>
+          </div>
+
+          {% if lotes_flashcard %}
+            {% for lote in lotes_flashcard|slice:":5" %}
+              <div class="ementa-item">
+                <div class="ementa-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5">
+                    <rect x="2" y="1" width="12" height="14" rx="1.5"/>
+                    <path d="M5 5h6M5 8h6M5 11h4"/>
+                  </svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    Lote de flashcards
+                  </div>
+                  <div style="font-size:11px;color:var(--ink-60);margin-top:1px">
+                    {{ lote.quantidade_recebida }} questões · {{ lote.criado_em|date:"d/m/Y" }}
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;margin-left:8px">
+                  {% if lote.ementa %}
+                    <span class="badge badge-gray">{{ lote.ementa.titulo }}</span>
+                  {% endif %}
+                  <a href="{% url 'flashcards_lote' lote.id %}" class="btn btn-primary btn-sm" style="padding:4px 8px">Abrir flashcards</a>
+                  <a href="{% url 'flashcards_editar' lote.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Editar</a>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state" style="padding:20px 0">
+              <div class="empty-state-icon">🃏</div>
+              <div class="empty-state-title">Nenhum flashcard criado</div>
+              <div class="empty-state-sub">Selecione questões no banco para gerar um lote de flashcards.</div>
             </div>
           {% endif %}
         </div>

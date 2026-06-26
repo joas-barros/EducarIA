@@ -8,6 +8,15 @@
   <link rel="stylesheet" href="{% static 'app/style.css' %}">
 </head>
 <body>
+  {% if messages %}
+    <div style="position:fixed;top:14px;right:14px;z-index:50;display:flex;flex-direction:column;gap:8px;max-width:360px">
+      {% for message in messages %}
+        <div class="{% if message.tags == 'error' %}error-box{% else %}card{% endif %}" style="margin:0;box-shadow:var(--shadow-md)">
+          {{ message }}
+        </div>
+      {% endfor %}
+    </div>
+  {% endif %}
   {% block body %}{% endblock %}
 </body>
 </html>
