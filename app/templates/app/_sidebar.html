@@ -22,11 +22,18 @@
       Disciplinas
     </a>
     <div class="sb-section" style="margin-top:10px">Ferramentas IA</div>
-    <a href="#" class="sb-item">
+    <a href="{% url 'questoes_gerar' %}" class="sb-item {% if active_page == 'questoes_gerar' %}active{% endif %}">
       <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M8 2l1.5 3 3.5.5-2.5 2.5.5 3.5L8 10l-3 1.5.5-3.5L3 5.5 6.5 5z"/>
       </svg>
       Gerar questões
+    </a>
+    <a href="{% url 'questoes_revisoes_pendentes' %}" class="sb-item {% if active_page == 'questoes_revisoes_pendentes' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 3h10v10H3z"/>
+        <path d="M5 6h6M5 9h4"/>
+      </svg>
+      Revisões pendentes
     </a>
     {% if request.user.trabalha_com_idiomas %}
     <a href="#" class="sb-item">

@@ -19,7 +19,7 @@
       </div>
       <div class="topbar-right">
         <a href="{% url 'disciplina_editar' disciplina.id %}" class="btn">Editar</a>
-        <button class="btn" disabled title="Disponível no Sprint 2">Gerar questões</button>
+        <a href="{% url 'questoes_gerar' %}?disciplina={{ disciplina.id }}" class="btn btn-primary">Gerar questões</a>
         {% if request.user.trabalha_com_idiomas %}
           <button class="btn" disabled title="Disponível no Sprint 3">Gerar listening</button>
         {% endif %}

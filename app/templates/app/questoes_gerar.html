@@ -1,0 +1,106 @@
+{% extends "app/base.html" %}
+{% block title %}Gerar questões — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes_gerar" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'questoes' %}" class="breadcrumb">← Banco de questões</a>
+        <div class="page-title">Gerar questões</div>
+        <div class="page-sub">Monte a solicitação e envie para a IA gerar o payload estruturado.</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:920px">
+        <form method="post">
+          {% csrf_token %}
+
+          {% if error_message %}
+            <div class="error-box">{{ error_message }}</div>
+          {% endif %}
+
+          {% if form.non_field_errors %}
+            <div class="error-box">
+              {% for err in form.non_field_errors %}{{ err }}{% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="card" style="margin-bottom:14px">
+            <div class="card-title">Configuração da geração</div>
+
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.disciplina.label }}</label>
+                {{ form.disciplina }}
+                {% for err in form.disciplina.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.ementa.label }}</label>
+                {{ form.ementa }}
+                {% for err in form.ementa.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.quantidade.label }}</label>
+                {{ form.quantidade }}
+                {% for err in form.quantidade.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.tipo.label }}</label>
+                {{ form.tipo }}
+                {% for err in form.tipo.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+
+            <div class="row2">
+              <div class="field">
+                <label>{{ form.dificuldade.label }}</label>
+                {{ form.dificuldade }}
+                {% for err in form.dificuldade.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+              <div class="field">
+                <label>{{ form.instrucao.label }}</label>
+                {{ form.instrucao }}
+                {% for err in form.instrucao.errors %}<div class="field-error">{{ err }}</div>{% endfor %}
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Como funciona</div>
+            <div style="display:grid;gap:10px">
+              <div class="metric-box" style="text-align:left">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">1. Você informa o tema</div>
+                <div style="font-size:12px;color:var(--ink-60)">Escolha a disciplina, a ementa e o estilo de questão que deseja gerar.</div>
+              </div>
+              <div class="metric-box" style="text-align:left">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">2. O sistema prepara as questões</div>
+                <div style="font-size:12px;color:var(--ink-60)">A IA monta as questões com base no conteúdo informado e nas orientações que você escreveu.</div>
+              </div>
+              <div class="metric-box" style="text-align:left">
+                <div style="font-size:12px;font-weight:600;margin-bottom:4px">3. Você revisa antes de salvar</div>
+                <div style="font-size:12px;color:var(--ink-60)">Depois da geração, você confere cada questão, aprova o que estiver bom e ajusta o que precisar.</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-top:14px">
+            <a href="{% url 'questoes_revisoes_pendentes' %}" class="btn btn-ghost">Ver revisões pendentes</a>
+          </div>
+
+          <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <a href="{% url 'questoes' %}" class="btn">Cancelar</a>
+            <button type="submit" class="btn btn-primary">Gerar questões</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

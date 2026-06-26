@@ -245,6 +245,68 @@ class DisciplinaEditForm(forms.Form):
     )
 
 
+class GeracaoQuestoesForm(forms.Form):
+    disciplina = forms.ModelChoiceField(
+        queryset=Disciplina.objects.none(),
+        label='Disciplina',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    ementa = forms.ModelChoiceField(
+        queryset=Ementa.objects.none(),
+        required=False,
+        label='Ementa de origem (opcional)',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    quantidade = forms.IntegerField(
+        min_value=1,
+        max_value=20,
+        initial=5,
+        label='Quantidade de questões',
+        widget=forms.NumberInput(attrs={'class': 'inp', 'min': 1, 'max': 20}),
+    )
+    tipo = forms.ChoiceField(
+        choices=[
+            ('automatico', 'Automático'),
+            ('multipla_escolha', 'Múltipla escolha'),
+            ('verdadeiro_falso', 'Verdadeiro/Falso'),
+            ('dissertativa', 'Dissertativa'),
+            ('lacunas', 'Lacunas'),
+        ],
+        initial='automatico',
+        label='Tipo de questão',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    dificuldade = forms.ChoiceField(
+        choices=DIFICULDADE_IA_CHOICES,
+        initial='mix',
+        label='Dificuldade',
+        widget=forms.Select(attrs={'class': 'sel'}),
+    )
+    instrucao = forms.CharField(
+        required=False,
+        label='Instruções para a IA (opcional)',
+        widget=forms.Textarea(attrs={
+            'class': 'ta',
+            'rows': 4,
+            'placeholder': 'Ex: Faça questões curtas e diretas, sem pegadinhas.',
+        }),
+    )
+
+    def __init__(self, professor, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.professor = professor
+        self.fields['disciplina'].queryset = Disciplina.objects.filter(professor=professor)
+        self.fields['ementa'].queryset = Ementa.objects.filter(disciplina__professor=professor)
+
+    def clean(self):
+        cleaned = super().clean()
+        disciplina = cleaned.get('disciplina')
+        ementa = cleaned.get('ementa')
+        if disciplina and ementa and ementa.disciplina_id != disciplina.id:
+            self.add_error('ementa', 'A ementa selecionada não pertence a essa disciplina.')
+        return cleaned
+
+
 class QuestaoBaseForm(forms.Form):
     campos_dados = []
 
@@ -605,4 +667,3 @@ class ProvaForm(forms.Form):
                 self.add_error(None, 'Você deve definir a quantidade maior do que 0 para pelo menos um dos níveis de dificuldade.')
 
         return cleaned
-

@@ -1,0 +1,35 @@
+{% extends "app/base.html" %}
+{% block title %}Gerando questões — EducarIA{% endblock %}
+
+{% block body %}
+<div class="login-wrap">
+  <div class="login-deco"></div>
+  <div class="login-deco2"></div>
+
+  <div class="login-card" style="width:520px;text-align:center">
+    <div class="login-logo">Educar<em>IA</em></div>
+    <div class="login-tagline" style="margin-bottom:22px">Estamos montando suas questões. Isso pode levar alguns segundos.</div>
+
+    {% if erro %}
+      <div class="error-box" style="text-align:left">{{ erro }}</div>
+      <div style="margin-top:18px">
+        <a href="{% url 'questoes_gerar' %}" class="btn btn-primary">Voltar e tentar novamente</a>
+      </div>
+    {% else %}
+      <div style="display:flex;justify-content:center;margin:18px 0 10px">
+        <div class="loader-ring"></div>
+      </div>
+      <div class="warn-box" style="text-align:left">
+        A geração está em andamento. Assim que terminar, você será levado para a revisão do lote.
+      </div>
+      {% if redirect_url %}
+        <script>
+          setTimeout(function () {
+            window.location.href = "{{ redirect_url }}";
+          }, 700);
+        </script>
+      {% endif %}
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
