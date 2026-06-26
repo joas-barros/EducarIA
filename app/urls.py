@@ -19,6 +19,8 @@ urlpatterns = [
 
     path('questoes/', views.questoes_list, name='questoes'),
     path('questoes/gerar/', views.questoes_gerar, name='questoes_gerar'),
+    path('questoes/gerar/processando/', views.questoes_gerar_processando, name='questoes_gerar_processando'),
+    path('questoes/revisoes/pendentes/', views.questoes_revisoes_pendentes, name='questoes_revisoes_pendentes'),
     path('questoes/nova/', views.questao_nova, name='questao_nova'),
     path('questoes/copiar/', views.questoes_copiar, name='questoes_copiar'),
     path('questoes/lotes/<uuid:pk>/revisao/', views.questoes_revisao_lote, name='questoes_revisao_lote'),
