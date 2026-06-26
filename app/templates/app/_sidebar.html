@@ -22,11 +22,18 @@
       Disciplinas
     </a>
     <div class="sb-section" style="margin-top:10px">Ferramentas IA</div>
-    <a href="#" class="sb-item">
+    <a href="{% url 'questoes_gerar' %}" class="sb-item {% if active_page == 'questoes_gerar' %}active{% endif %}">
       <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
         <path d="M8 2l1.5 3 3.5.5-2.5 2.5.5 3.5L8 10l-3 1.5.5-3.5L3 5.5 6.5 5z"/>
       </svg>
       Gerar questões
+    </a>
+    <a href="{% url 'questoes_revisoes_pendentes' %}" class="sb-item {% if active_page == 'questoes_revisoes_pendentes' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 3h10v10H3z"/>
+        <path d="M5 6h6M5 9h4"/>
+      </svg>
+      Revisões pendentes
     </a>
     {% if request.user.trabalha_com_idiomas %}
     <a href="#" class="sb-item">
@@ -37,12 +44,26 @@
     </a>
     {% endif %}
     <div class="sb-section" style="margin-top:10px">Acervo</div>
-    <a href="#" class="sb-item">
+    <a href="{% url 'questoes' %}" class="sb-item {% if active_page == 'questoes' %}active{% endif %}">
       <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
         <rect x="1" y="3" width="14" height="10" rx="1.5"/>
         <path d="M5 3V2M11 3V2M1 7h14"/>
       </svg>
       Banco de questões
+    </a>
+    <a href="{% url 'flashcards' %}" class="sb-item {% if active_page == 'flashcards' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="2" width="10" height="12" rx="1.5"/>
+        <path d="M5.5 5h5M5.5 8h5M5.5 11h3"/>
+      </svg>
+      Flashcards
+    </a>
+    <a href="{% url 'provas' %}" class="sb-item {% if active_page == 'provas' %}active{% endif %}">
+      <svg class="sb-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M3 2h10l2 2v10H3V2z"/>
+        <path d="M3 5h12M6 8h4M6 11h4"/>
+      </svg>
+      Minhas provas
     </a>
   </div>
   <div class="sb-foot">

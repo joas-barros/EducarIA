@@ -1,18 +1,35 @@
+from django.contrib import messages
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.db.models import Count
+from django.core.exceptions import ValidationError
+from django.db.models import Count, Q
+from django.core.files.base import ContentFile
+from django.http import HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
-from django.utils import timezone
 from django.views.decorators.http import require_POST
 from formtools.wizard.views import SessionWizardView
+import json
 
 from .forms import (
     CadastroStep1Form, CadastroStep2Form, CadastroStep3Form, LoginForm,
     DisciplinaStep1Form, DisciplinaStep2Form, DisciplinaEditForm,
-    EmentaForm,
+    EmentaForm, GeracaoQuestoesForm, get_questao_form_class, initial_questao_form,
+    LoteFlashcardForm, ProvaForm,
 )
-from .models import Disciplina, Ementa
+from .models import Disciplina, Ementa, Infografico, LoteFlashcard, LoteGeracaoQuestao, Questao, Prova
+from .services.ia import gerar_payload_questoes_gemini, gerar_infografico_huggingface
+from .services.questoes import (
+    aprovar_questao,
+    aprovar_todas_questoes,
+    editar_e_aprovar_questao,
+    criar_lote_questoes,
+    criar_lote_flashcard,
+    formatar_questoes_para_copia,
+    linhas_dados_questao,
+    rejeitar_questao,
+    resposta_flashcard_questao,
+)
 
 Professor = get_user_model()
 
@@ -39,7 +56,6 @@ class CadastroWizardView(SessionWizardView):
             first_name=data['nome'],
             last_name=data['sobrenome'],
             password=data['senha'],
-            trabalha_com_idiomas=data.get('trabalha_com_idiomas', False),
         )
 
         # Auto-criação da Disciplina inicial (spec §1.1)
@@ -123,8 +139,6 @@ class DisciplinaCreateView(LoginRequiredMixin, SessionWizardView):
             serie_ano=data.get('serie_ano', ''),
             turno=data.get('turno', ''),
             num_alunos_estimado=data.get('num_alunos_estimado'),
-            periodo_inicio=data.get('periodo_inicio'),
-            periodo_fim=data.get('periodo_fim'),
             config_ia=config_ia,
         )
         return redirect('disciplinas')
@@ -132,17 +146,51 @@ class DisciplinaCreateView(LoginRequiredMixin, SessionWizardView):
 
 @login_required
 def disciplinas_list(request):
-    disciplinas = request.user.disciplinas.annotate(num_ementas=Count('ementas'))
+    disciplinas = request.user.disciplinas.annotate(
+        num_ementas=Count('ementas', distinct=True),
+        num_questoes=Count(
+            'questoes',
+            filter=Q(questoes__ativa=True, questoes__status__in=[
+                Questao.STATUS_APROVADA,
+                Questao.STATUS_EDITADA,
+            ]),
+            distinct=True,
+        ),
+    )
     return render(request, 'app/disciplinas.html', {'disciplinas': disciplinas})
 
 
 @login_required
 def disciplina_detalhe(request, pk):
     disciplina = get_object_or_404(Disciplina, id=pk, professor=request.user)
-    ementas = disciplina.ementas.all()
+    ementas = list(disciplina.ementas.select_related('infografico').all())
+    lotes_flashcard = (
+        disciplina.lotes_flashcard
+        .select_related('ementa')
+        .order_by('-criado_em')
+    )
+    flashcards_por_ementa = {}
+    for lote in lotes_flashcard:
+        if lote.ementa_id and str(lote.ementa_id) not in flashcards_por_ementa:
+            flashcards_por_ementa[str(lote.ementa_id)] = lote
+    for ementa in ementas:
+        ementa.flashcard_lote = flashcards_por_ementa.get(str(ementa.id))
+    questoes_recentes = (
+        disciplina.questoes
+        .filter(ativa=True, status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA])
+        .select_related('ementa')
+        .order_by('-criado_em')[:5]
+    )
+    num_questoes = disciplina.questoes.filter(
+        ativa=True,
+        status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA],
+    ).count()
     return render(request, 'app/disciplina_detalhe.html', {
         'disciplina': disciplina,
         'ementas': ementas,
+        'lotes_flashcard': lotes_flashcard,
+        'questoes_recentes': questoes_recentes,
+        'num_questoes': num_questoes,
     })
 
 
@@ -160,8 +208,6 @@ def disciplina_editar(request, pk):
             disciplina.serie_ano = d.get('serie_ano', '')
             disciplina.turno = d.get('turno', '')
             disciplina.num_alunos_estimado = d.get('num_alunos_estimado')
-            disciplina.periodo_inicio = d.get('periodo_inicio')
-            disciplina.periodo_fim = d.get('periodo_fim')
 
             if d.get('dificuldade_padrao') or d.get('tipos_preferidos') or d.get('observacoes_ia'):
                 disciplina.config_ia = {
@@ -181,8 +227,6 @@ def disciplina_editar(request, pk):
             'serie_ano': disciplina.serie_ano,
             'turno': disciplina.turno,
             'num_alunos_estimado': disciplina.num_alunos_estimado,
-            'periodo_inicio': disciplina.periodo_inicio,
-            'periodo_fim': disciplina.periodo_fim,
             'dificuldade_padrao': config.get('dificuldade_padrao', 'mix'),
             'tipos_preferidos': config.get('tipos_preferidos', []),
             'observacoes_ia': config.get('observacoes_ia', ''),
@@ -254,4 +298,733 @@ def ementa_excluir(request, disciplina_pk, pk):
     return render(request, 'app/ementa_excluir.html', {
         'ementa': ementa,
         'disciplina': disciplina,
+    })
+
+
+@login_required
+@require_POST
+def flashcards_criar(request):
+    ids = request.POST.getlist('questoes')
+    questoes = list(
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .filter(id__in=ids)
+        .select_related('disciplina', 'ementa')
+    )
+    if not questoes:
+        messages.error(request, 'Selecione pelo menos uma questão para criar flashcards.')
+        return redirect('questoes')
+
+    disciplina = questoes[0].disciplina
+    if any(q.disciplina_id != disciplina.id for q in questoes):
+        messages.error(request, 'Selecione questões de uma única disciplina.')
+        return redirect('questoes')
+
+    ementas = {q.ementa_id for q in questoes}
+    if len(ementas) != 1 or None in ementas:
+        messages.error(request, 'Selecione questões vinculadas a uma única ementa.')
+        return redirect('questoes')
+    ementa = questoes[0].ementa
+
+    try:
+        lote = criar_lote_flashcard(
+            professor=request.user,
+            disciplina=disciplina,
+            ementa=ementa,
+            questoes=questoes,
+        )
+    except ValidationError as exc:
+        messages.error(request, '; '.join(exc.messages))
+        return redirect('questoes')
+    if not lote:
+        messages.error(request, 'Nenhuma questão válida foi encontrada para criar flashcards.')
+        return redirect('questoes')
+    return redirect('flashcards_lote', pk=lote.id)
+
+
+@login_required
+def flashcards_list(request):
+    lotes = (
+        LoteFlashcard.objects.filter(professor=request.user)
+        .select_related('disciplina', 'ementa')
+        .prefetch_related('questoes')
+    )
+    return render(request, 'app/flashcards.html', {
+        'lotes': lotes,
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_novo(request):
+    if request.method == 'POST':
+        form = LoteFlashcardForm(request.user, request.POST)
+        if form.is_valid():
+            lote = form.save()
+            return redirect('flashcards_lote', pk=lote.id)
+    else:
+        initial = {}
+        ementa_id = request.GET.get('ementa')
+        if ementa_id:
+            initial['ementa'] = ementa_id
+        form = LoteFlashcardForm(request.user, initial=initial)
+
+    return render(request, 'app/flashcard_form.html', {
+        'form': form,
+        'titulo': 'Novo flashcard',
+        'subtitulo': 'Crie um lote a partir das questões de uma ementa.',
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_lote(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    questoes = list(lote.questoes.filter(ativa=True).order_by('criado_em'))
+    if not questoes:
+        return render(request, 'app/flashcards_lote.html', {
+            'lote': lote,
+            'questoes': [],
+            'total': 0,
+        })
+    flashcards = []
+    for questao in questoes:
+        flashcards.append({
+            'id': str(questao.id),
+            'frente': questao.enunciado,
+            'verso': resposta_flashcard_questao(questao),
+        })
+    return render(request, 'app/flashcards_lote.html', {
+        'lote': lote,
+        'questoes': flashcards,
+        'primeiro_flashcard': flashcards[0],
+        'flashcards_json': flashcards,
+        'total': len(flashcards),
+    })
+
+
+@login_required
+def flashcards_editar(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa').prefetch_related('questoes'),
+        id=pk,
+        professor=request.user,
+    )
+    if request.method == 'POST':
+        form = LoteFlashcardForm(request.user, request.POST, instance=lote)
+        if form.is_valid():
+            lote = form.save()
+            return redirect('flashcards_lote', pk=lote.id)
+    else:
+        form = LoteFlashcardForm(request.user, instance=lote)
+
+    return render(request, 'app/flashcard_form.html', {
+        'form': form,
+        'titulo': 'Editar flashcard',
+        'subtitulo': 'Atualize a ementa e as questões deste lote.',
+        'lote': lote,
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def flashcards_excluir(request, pk):
+    lote = get_object_or_404(
+        LoteFlashcard.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    if request.method == 'POST':
+        lote.delete()
+        return redirect('flashcards')
+    return render(request, 'app/flashcard_excluir.html', {
+        'lote': lote,
+        'active_page': 'flashcards',
+    })
+
+
+@login_required
+def infografico_gerar(request, disciplina_pk, ementa_pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+    ementa = get_object_or_404(Ementa, id=ementa_pk, disciplina=disciplina)
+    infografico, _ = Infografico.objects.get_or_create(
+        ementa=ementa,
+        defaults={'professor': request.user, 'status': Infografico.STATUS_PENDENTE},
+    )
+    infografico.status = Infografico.STATUS_PENDENTE
+    infografico.save(update_fields=['status', 'atualizado_em'])
+
+    try:
+        resultado = gerar_infografico_huggingface(
+            disciplina_id=disciplina.id,
+            disciplina_nome=disciplina.nome,
+            ementa_id=ementa.id,
+            ementa_titulo=ementa.titulo,
+            ementa_texto=(ementa.texto_colado if ementa.tipo_fonte == 'texto_colado' else ''),
+            descricao=ementa.descricao,
+            orientacao_visual=disciplina.config_ia.get('observacoes_ia') if disciplina.config_ia else None,
+        )
+    except Exception as exc:
+        infografico.status = Infografico.STATUS_ERRO
+        infografico.save(update_fields=['status', 'atualizado_em'])
+        return render(request, 'app/infografico_loading.html', {
+            'erro': f'Não foi possível gerar o infográfico: {exc}',
+            'ementa': ementa,
+            'disciplina': disciplina,
+        })
+
+    infografico.texto_resumo = resultado.get('texto_resumo', '')
+    infografico.arquivo.save(
+        resultado['filename'],
+        ContentFile(resultado['imagem_bytes']),
+        save=False,
+    )
+    infografico.status = Infografico.STATUS_GERADO
+    infografico.save()
+
+    return render(request, 'app/infografico_loading.html', {
+        'redirect_url': f"/disciplinas/{disciplina.id}/ementas/{ementa.id}/infografico/",
+        'ementa': ementa,
+        'disciplina': disciplina,
+    })
+
+
+@login_required
+def infografico_visualizar(request, disciplina_pk, ementa_pk):
+    disciplina = get_object_or_404(Disciplina, id=disciplina_pk, professor=request.user)
+    ementa = get_object_or_404(Ementa, id=ementa_pk, disciplina=disciplina)
+    infografico = getattr(ementa, 'infografico', None)
+    return render(request, 'app/infografico_visualizar.html', {
+        'disciplina': disciplina,
+        'ementa': ementa,
+        'infografico': infografico,
+    })
+
+
+# ------------------------------------------------------------------ Questões
+
+def _tipo_questao_requisicao(request, default=Questao.TIPO_DISSERTATIVA):
+    tipo = request.POST.get('tipo') if request.method == 'POST' else request.GET.get('tipo')
+    tipos_validos = {choice[0] for choice in Questao.TIPO_CHOICES}
+    return tipo if tipo in tipos_validos else default
+
+
+@login_required
+def questoes_list(request):
+    filtros = {
+        'disciplina': request.GET.get('disciplina', ''),
+        'ementa': request.GET.get('ementa', ''),
+        'tipo': request.GET.get('tipo', ''),
+        'dificuldade': request.GET.get('dificuldade', ''),
+        'status': request.GET.get('status', ''),
+        'q': request.GET.get('q', ''),
+    }
+
+    questoes = (
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .select_related('disciplina', 'ementa')
+    )
+
+    if filtros['disciplina']:
+        questoes = questoes.filter(disciplina_id=filtros['disciplina'])
+    if filtros['ementa']:
+        questoes = questoes.filter(ementa_id=filtros['ementa'])
+    if filtros['tipo']:
+        questoes = questoes.filter(tipo=filtros['tipo'])
+    if filtros['dificuldade']:
+        questoes = questoes.filter(dificuldade=filtros['dificuldade'])
+    if filtros['status']:
+        questoes = questoes.filter(status=filtros['status'])
+    if filtros['q']:
+        questoes = questoes.filter(enunciado__icontains=filtros['q'])
+
+    return render(request, 'app/questoes.html', {
+        'questoes': questoes,
+        'disciplinas': Disciplina.objects.filter(professor=request.user),
+        'ementas': Ementa.objects.filter(disciplina__professor=request.user),
+        'tipo_choices': Questao.TIPO_CHOICES,
+        'dificuldade_choices': Questao.DIFICULDADE_CHOICES,
+        'status_choices': [
+            (Questao.STATUS_APROVADA, 'Aprovada'),
+            (Questao.STATUS_EDITADA, 'Editada'),
+        ],
+        'filtros': filtros,
+    })
+
+
+@login_required
+def questoes_gerar(request):
+    disciplina_inicial = request.GET.get('disciplina')
+    initial = {}
+    if disciplina_inicial:
+        initial['disciplina'] = disciplina_inicial
+    form = GeracaoQuestoesForm(request.user, initial=initial)
+
+    if request.method == 'POST':
+        form = GeracaoQuestoesForm(request.user, request.POST)
+        if form.is_valid():
+            request.session['geracao_questoes_payload'] = {
+                'disciplina_id': str(form.cleaned_data['disciplina'].id),
+                'ementa_id': str(form.cleaned_data['ementa'].id) if form.cleaned_data.get('ementa') else None,
+                'quantidade': form.cleaned_data['quantidade'],
+                'tipo': form.cleaned_data['tipo'],
+                'dificuldade': form.cleaned_data['dificuldade'],
+                'instrucao': form.cleaned_data.get('instrucao') or '',
+            }
+            return redirect('questoes_gerar_processando')
+
+    return render(request, 'app/questoes_gerar.html', {
+        'form': form,
+    })
+
+
+@login_required
+def questoes_gerar_processando(request):
+    payload = request.session.get('geracao_questoes_payload')
+    if not payload:
+        return redirect('questoes_gerar')
+
+    disciplina = get_object_or_404(Disciplina, id=payload['disciplina_id'], professor=request.user)
+    ementa = None
+    if payload.get('ementa_id'):
+        ementa = get_object_or_404(Ementa, id=payload['ementa_id'], disciplina=disciplina)
+
+    try:
+        generated = gerar_payload_questoes_gemini(
+            disciplina_id=disciplina.id,
+            disciplina_nome=disciplina.nome,
+            ementa_id=ementa.id if ementa else None,
+            ementa_texto=(ementa.texto_colado if ementa else '') or '',
+            instrucao=payload.get('instrucao') or '',
+            tipo=payload['tipo'],
+            dificuldade=payload['dificuldade'],
+            quantidade=payload['quantidade'],
+        )
+    except Exception as exc:
+        request.session.pop('geracao_questoes_payload', None)
+        return render(request, 'app/questoes_gerar.html', {
+            'form': GeracaoQuestoesForm(
+                request.user,
+                initial={
+                    'disciplina': disciplina.id,
+                    'ementa': ementa.id if ementa else None,
+                    'quantidade': payload['quantidade'],
+                    'tipo': payload['tipo'],
+                    'dificuldade': payload['dificuldade'],
+                    'instrucao': payload.get('instrucao') or '',
+                },
+            ),
+            'error_message': f'Não foi possível gerar as questões: {exc}',
+        })
+
+    request.session.pop('geracao_questoes_payload', None)
+    disciplina_id = generated.get('disciplina_id') or str(disciplina.id)
+    ementa_payload_id = generated.get('ementa_id')
+    questoes = generated.get('questoes') or []
+
+    if str(disciplina.id) != str(disciplina_id):
+        return render(request, 'app/questoes_gerar_loading.html', {
+            'erro': 'A IA retornou uma disciplina diferente da selecionada.',
+        })
+    if ementa and ementa_payload_id and str(ementa.id) != str(ementa_payload_id):
+        return render(request, 'app/questoes_gerar_loading.html', {
+            'erro': 'A IA retornou uma ementa diferente da selecionada.',
+        })
+
+    lote, _, _ = criar_lote_questoes(
+        professor=request.user,
+        disciplina=disciplina,
+        ementa=ementa,
+        questoes=questoes,
+    )
+    if lote is None:
+        return render(request, 'app/questoes_gerar_loading.html', {
+            'erro': 'A IA não gerou nenhuma questão válida para salvar.',
+        })
+
+    return render(request, 'app/questoes_gerar_loading.html', {
+        'redirect_url': f'/questoes/lotes/{lote.id}/revisao/',
+    })
+
+
+@login_required
+def questoes_revisoes_pendentes(request):
+    lotes = (
+        LoteGeracaoQuestao.objects
+        .filter(professor=request.user)
+        .annotate(
+            total_geradas=Count('questoes', filter=Q(questoes__status=Questao.STATUS_GERADA, questoes__ativa=True)),
+            total_revisadas=Count('questoes', filter=Q(questoes__status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA], questoes__ativa=True)),
+        )
+        .filter(total_geradas__gt=0)
+        .select_related('disciplina', 'ementa')
+    )
+
+    return render(request, 'app/questoes_revisoes_pendentes.html', {
+        'lotes': lotes,
+    })
+
+
+@login_required
+def questao_nova(request):
+    tipo = _tipo_questao_requisicao(request)
+    form_class = get_questao_form_class(tipo)
+    initial = {
+        'tipo': tipo,
+        'dificuldade': Questao.DIFICULDADE_MEDIO,
+    }
+    disciplina_id = request.GET.get('disciplina')
+    if disciplina_id:
+        initial['disciplina'] = disciplina_id
+
+    if request.method == 'POST':
+        form = form_class(request.POST, professor=request.user)
+        if form.is_valid():
+            dados = form.cleaned_data
+            questao = Questao.objects.create(
+                disciplina=dados['disciplina'],
+                ementa=dados.get('ementa'),
+                tipo=dados['tipo'],
+                enunciado=dados['enunciado'],
+                dificuldade=dados['dificuldade'],
+                dados=form.montar_dados(),
+                status=Questao.STATUS_APROVADA,
+                origem=Questao.ORIGEM_MANUAL,
+            )
+            return redirect('questao_detalhe', pk=questao.id)
+    else:
+        form = form_class(professor=request.user, initial=initial)
+
+    return render(request, 'app/questao_form.html', {
+        'form': form,
+        'titulo': 'Nova questão',
+        'subtitulo': 'Cadastro manual direto no Banco de Questões.',
+    })
+
+
+@login_required
+def questao_detalhe(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.ativas().do_professor(request.user).select_related('disciplina', 'ementa'),
+        id=pk,
+    )
+    return render(request, 'app/questao_detalhe.html', {
+        'questao': questao,
+        'dados_linhas': linhas_dados_questao(questao),
+    })
+
+
+@login_required
+def questao_editar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.ativas().do_professor(request.user).select_related('disciplina', 'ementa', 'lote'),
+        id=pk,
+    )
+    status_anterior = questao.status
+    tipo = _tipo_questao_requisicao(request, default=questao.tipo)
+    form_class = get_questao_form_class(tipo)
+
+    if request.method == 'POST':
+        form = form_class(request.POST, professor=request.user)
+        if form.is_valid():
+            dados = form.cleaned_data
+            editar_e_aprovar_questao(
+                questao,
+                enunciado=dados['enunciado'],
+                tipo=dados['tipo'],
+                dificuldade=dados['dificuldade'],
+                dados=form.montar_dados(),
+            )
+            questao.disciplina = dados['disciplina']
+            questao.ementa = dados.get('ementa')
+            questao.save(update_fields=['disciplina', 'ementa', 'atualizado_em'])
+            if status_anterior == Questao.STATUS_GERADA and questao.lote_id:
+                return redirect('questoes_revisao_lote', pk=questao.lote_id)
+            return redirect('questao_detalhe', pk=questao.id)
+    else:
+        if tipo == questao.tipo:
+            initial = initial_questao_form(questao)
+        else:
+            initial = {
+                'disciplina': questao.disciplina_id,
+                'ementa': questao.ementa_id,
+                'tipo': tipo,
+                'dificuldade': questao.dificuldade,
+                'enunciado': questao.enunciado,
+            }
+        form = form_class(professor=request.user, initial=initial)
+
+    return render(request, 'app/questao_form.html', {
+        'form': form,
+        'titulo': 'Editar questão',
+        'subtitulo': 'Ao salvar, a questão fica com status editada.',
+        'questao': questao,
+    })
+
+
+@login_required
+def questao_excluir(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.banco().do_professor(request.user).select_related('disciplina'),
+        id=pk,
+    )
+
+    if request.method == 'POST':
+        questao.delete()
+        return redirect('questoes')
+
+    return render(request, 'app/questao_excluir.html', {'questao': questao})
+
+
+@login_required
+@require_POST
+def questoes_copiar(request):
+    ids = request.POST.getlist('questoes')
+    questoes = list(
+        Questao.objects.banco()
+        .do_professor(request.user)
+        .filter(id__in=ids)
+        .select_related('disciplina', 'ementa')
+    )
+    texto = formatar_questoes_para_copia(questoes)
+    if request.POST.get('download') == '1':
+        return HttpResponse(texto, content_type='text/plain; charset=utf-8')
+    return render(request, 'app/questoes_copiar.html', {
+        'questoes': questoes,
+        'texto': texto,
+    })
+
+
+@login_required
+def questoes_revisao_lote(request, pk):
+    lote = get_object_or_404(
+        LoteGeracaoQuestao.objects.select_related('disciplina', 'ementa'),
+        id=pk,
+        professor=request.user,
+    )
+    questoes = list(lote.questoes.filter(
+        ativa=True,
+        status=Questao.STATUS_GERADA,
+    ).order_by('criado_em'))
+    for questao in questoes:
+        questao.dados_linhas = linhas_dados_questao(questao)
+    revisadas = lote.questoes.filter(
+        status__in=[Questao.STATUS_APROVADA, Questao.STATUS_EDITADA],
+    ).count()
+
+    return render(request, 'app/questoes_revisao.html', {
+        'lote': lote,
+        'questoes': questoes,
+        'revisadas': revisadas,
+    })
+
+
+@login_required
+@require_POST
+def questoes_aprovar_todas(request, lote_pk):
+    lote = get_object_or_404(LoteGeracaoQuestao, id=lote_pk, professor=request.user)
+    aprovar_todas_questoes(lote)
+    return redirect('questoes_revisao_lote', pk=lote.id)
+
+
+@login_required
+@require_POST
+def questao_aprovar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.geradas().do_professor(request.user),
+        id=pk,
+    )
+    lote_id = questao.lote_id
+    aprovar_questao(questao)
+    if lote_id:
+        return redirect('questoes_revisao_lote', pk=lote_id)
+    return redirect('questoes')
+
+
+@login_required
+@require_POST
+def questao_rejeitar(request, pk):
+    questao = get_object_or_404(
+        Questao.objects.geradas().do_professor(request.user),
+        id=pk,
+    )
+    lote_id = questao.lote_id
+    rejeitar_questao(questao)
+    if lote_id:
+        return redirect('questoes_revisao_lote', pk=lote_id)
+    return redirect('questoes')
+
+
+@login_required
+def provas_list(request):
+    provas = Prova.objects.filter(professor=request.user).select_related('disciplina')
+    return render(request, 'app/provas.html', {
+        'provas': provas,
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_nova(request):
+    if request.method == 'POST':
+        form = ProvaForm(request.user, request.POST)
+        if form.is_valid():
+            titulo = form.cleaned_data['titulo']
+            disciplina = form.cleaned_data['disciplina']
+            metodo = form.cleaned_data['metodo']
+
+            if metodo == 'manual':
+                questoes = form.cleaned_data['questoes']
+                prova = Prova.objects.create(
+                    titulo=titulo,
+                    disciplina=disciplina,
+                    professor=request.user,
+                )
+                prova.questoes.set(questoes)
+                return redirect('prova_detalhe', pk=prova.id)
+
+            elif metodo == 'automatico':
+                ementa = form.cleaned_data['ementa']
+                qtd_facil = form.cleaned_data['qtd_facil'] or 0
+                qtd_medio = form.cleaned_data['qtd_medio'] or 0
+                qtd_dificil = form.cleaned_data['qtd_dificil'] or 0
+
+                base_qs = Questao.objects.banco().filter(disciplina=disciplina)
+                if ementa:
+                    base_qs = base_qs.filter(ementa=ementa)
+
+                questoes_facil = list(base_qs.filter(dificuldade='facil').order_by('?')[:qtd_facil])
+                questoes_medio = list(base_qs.filter(dificuldade='medio').order_by('?')[:qtd_medio])
+                questoes_dificil = list(base_qs.filter(dificuldade='dificil').order_by('?')[:qtd_dificil])
+
+                questoes = questoes_facil + questoes_medio + questoes_dificil
+
+                if not questoes:
+                    form.add_error(None, 'Nenhuma questão foi encontrada no banco correspondente aos critérios selecionados. Adicione mais questões ou mude os filtros.')
+                else:
+                    prova = Prova.objects.create(
+                        titulo=titulo,
+                        disciplina=disciplina,
+                        professor=request.user,
+                    )
+                    prova.questoes.set(questoes)
+                    return redirect('prova_detalhe', pk=prova.id)
+    else:
+        form = ProvaForm(request.user)
+
+    questoes = Questao.objects.banco().do_professor(request.user).select_related('ementa').values(
+        'id', 'enunciado', 'tipo', 'dificuldade', 'disciplina_id', 'ementa_id', 'ementa__titulo'
+    )
+    questoes_list = list(questoes)
+    for q in questoes_list:
+        q['id'] = str(q['id'])
+        q['disciplina_id'] = str(q['disciplina_id'])
+        q['ementa_id'] = str(q['ementa_id']) if q['ementa_id'] else ''
+        q['tipo_display'] = dict(Questao.TIPO_CHOICES).get(q['tipo'], q['tipo'])
+        q['dificuldade_display'] = dict(Questao.DIFICULDADE_CHOICES).get(q['dificuldade'], q['dificuldade'])
+        q['ementa_titulo'] = q['ementa__titulo'] or ''
+
+    ementas = Ementa.objects.filter(disciplina__professor=request.user).values('id', 'titulo', 'disciplina_id')
+    ementas_list = list(ementas)
+    for e in ementas_list:
+        e['id'] = str(e['id'])
+        e['disciplina_id'] = str(e['disciplina_id'])
+
+    import json
+    return render(request, 'app/prova_form.html', {
+        'form': form,
+        'questoes_json': json.dumps(questoes_list),
+        'ementas_json': json.dumps(ementas_list),
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_detalhe(request, pk):
+    prova = get_object_or_404(
+        Prova.objects.filter(professor=request.user).select_related('disciplina'),
+        id=pk
+    )
+    questoes = prova.questoes.all().select_related('ementa')
+    
+    if 'pdf' in request.GET:
+        from io import BytesIO
+        from django.template.loader import get_template
+        from xhtml2pdf import pisa
+        
+        com_gabarito = request.GET.get('gabarito') == '1'
+        
+        context = {
+            'prova': prova,
+            'questoes': questoes,
+            'com_gabarito': com_gabarito,
+        }
+        
+        template = get_template('app/prova_pdf.html')
+        html = template.render(context)
+        result = BytesIO()
+        pdf = pisa.pisaDocument(BytesIO(html.encode("utf-8")), result)
+        
+        if not pdf.err:
+            response = HttpResponse(result.getvalue(), content_type='application/pdf')
+            custom_filename = request.GET.get('filename')
+            if custom_filename:
+                import re
+                clean_filename = re.sub(r'[\\/*?:"<>|]', "", custom_filename).strip()
+                filename = f"{clean_filename}.pdf"
+            else:
+                suffix = "gabarito" if com_gabarito else "prova"
+                filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.pdf"
+            
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+        else:
+            return HttpResponse("Erro ao gerar PDF", status=500)
+
+    if 'download' in request.GET or 'copiar' in request.GET:
+        com_gabarito = request.GET.get('gabarito') == '1'
+        texto = formatar_questoes_para_copia(list(questoes), com_gabarito=com_gabarito)
+        tipo_documento = "GABARITO" if com_gabarito else "PROVA"
+        cabecalho = f"{tipo_documento}: {prova.titulo.upper()}\nDISCIPLINA: {prova.disciplina.nome.upper()}\nPROFESSOR(A): {prova.professor.get_full_name().upper()}\nDATA: {prova.criado_em.strftime('%d/%m/%Y')}\n"
+        cabecalho += "="*60 + "\n\n"
+        texto_completo = cabecalho + texto
+        
+        if 'download' in request.GET:
+            response = HttpResponse(texto_completo, content_type='text/plain; charset=utf-8')
+            suffix = "gabarito" if com_gabarito else "prova"
+            filename = f"{suffix}_{prova.titulo.replace(' ', '_')}.txt"
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+            
+        return render(request, 'app/prova_copiar.html', {
+            'prova': prova,
+            'questoes': questoes,
+            'texto': texto_completo,
+            'com_gabarito': com_gabarito,
+        })
+        
+    return render(request, 'app/prova_detalhe.html', {
+        'prova': prova,
+        'questoes': questoes,
+        'active_page': 'provas',
+    })
+
+
+@login_required
+def prova_excluir(request, pk):
+    prova = get_object_or_404(
+        Prova.objects.filter(professor=request.user),
+        id=pk
+    )
+    if request.method == 'POST':
+        prova.delete()
+        return redirect('provas')
+    return render(request, 'app/prova_excluir.html', {
+        'prova': prova,
+        'active_page': 'provas',
     })

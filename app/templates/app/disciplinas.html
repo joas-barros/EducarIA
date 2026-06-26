@@ -37,6 +37,7 @@
                 {% else %}
                   <span class="badge badge-amber">Adicionar ementa</span>
                 {% endif %}
+                <span class="badge badge-gray">{{ d.num_questoes }} quest{{ d.num_questoes|pluralize:"ão,ões" }}</span>
               </div>
             </a>
           {% endfor %}

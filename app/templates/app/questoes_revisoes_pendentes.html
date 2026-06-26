@@ -1,0 +1,66 @@
+{% extends "app/base.html" %}
+{% block title %}Revisões pendentes — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes_revisoes_pendentes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'questoes' %}" class="breadcrumb">← Banco de questões</a>
+        <div class="page-title">Revisões pendentes</div>
+        <div class="page-sub">Lotes que ainda têm questões aguardando aprovação ou rejeição.</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'questoes_gerar' %}" class="btn btn-primary">Gerar novas questões</a>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if lotes %}
+        <div style="display:grid;gap:12px">
+          {% for lote in lotes %}
+            <div class="card">
+              <div class="card-header">
+                <div>
+                  <div class="card-title" style="margin-bottom:4px">Lote de revisão</div>
+                  <div style="font-size:15px;font-weight:600;color:var(--ink)">{{ lote.disciplina.nome }}</div>
+                  <div style="font-size:12px;color:var(--ink-60);margin-top:3px">
+                    {% if lote.ementa %}{{ lote.ementa.titulo }} · {% endif %}{{ lote.criado_em|date:"d/m/Y H:i" }}
+                  </div>
+                </div>
+                <a href="{% url 'questoes_revisao_lote' lote.id %}" class="btn btn-primary btn-sm">Abrir revisão</a>
+              </div>
+
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+                <div class="metric-box">
+                  <div class="metric-val">{{ lote.total_geradas }}</div>
+                  <div class="metric-lbl">Pendentes</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-val">{{ lote.total_revisadas }}</div>
+                  <div class="metric-lbl">Já revisadas</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-val">{{ lote.quantidade_recebida }}</div>
+                  <div class="metric-lbl">Recebidas</div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">✓</div>
+            <div class="empty-state-title">Nenhuma revisão pendente</div>
+            <div class="empty-state-sub">Quando houver questões geradas aguardando decisão, elas vão aparecer aqui.</div>
+            <a href="{% url 'questoes_gerar' %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">Gerar questões</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

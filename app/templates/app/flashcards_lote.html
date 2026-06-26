@@ -1,0 +1,109 @@
+{% extends "app/base.html" %}
+{% block title %}Flashcards — EducarIA{% endblock %}
+
+{% block body %}
+<div style="min-height:100vh;background:#f5f4ef;padding:8px">
+  <div style="min-height:calc(100vh - 16px);background:#fff;border-radius:24px;border:1px solid rgba(17,24,22,.06);box-shadow:0 8px 30px rgba(0,0,0,.08);padding:40px 28px 28px;display:flex;flex-direction:column">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div style="font-size:22px;font-weight:700;letter-spacing:.04em;color:var(--ink-60);text-transform:uppercase">Flashcards</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="{% url 'flashcards' %}" class="btn">← Voltar</a>
+        <a href="{% url 'flashcards_editar' lote.id %}" class="btn">Editar</a>
+        <a href="{% url 'flashcards_excluir' lote.id %}" class="btn btn-danger">Excluir</a>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:center;align-items:center;flex:1">
+      <div style="width:min(680px,100%);text-align:center">
+        {% if questoes %}
+          <div id="card-wrap" style="perspective:1400px;margin:0 auto 22px;width:min(680px,100%)">
+            <div id="card" style="position:relative;min-height:420px;border-radius:44px;background:#fff;border:1px solid rgba(17,24,22,.06);box-shadow:0 12px 40px rgba(0,0,0,.08);transform-style:preserve-3d;transition:transform .45s ease;cursor:pointer;padding:44px 42px;display:flex;align-items:center;justify-content:center">
+              <div id="front" style="backface-visibility:hidden;position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px">
+                <div style="font-size:14px;letter-spacing:.12em;font-weight:700;color:#b7b7b7;text-transform:uppercase;margin-bottom:22px">Frente - clique para ver a resposta</div>
+                <div id="front-text" style="font-family:'Playfair Display',serif;font-weight:700;font-size:40px;line-height:1.12;color:var(--ink);max-width:560px">{{ primeiro_flashcard.frente }}</div>
+              </div>
+              <div id="back" style="backface-visibility:hidden;position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:44px;transform:rotateY(180deg)">
+                <div style="font-size:14px;letter-spacing:.12em;font-weight:700;color:#b7b7b7;text-transform:uppercase;margin-bottom:22px">Verso - clique para voltar</div>
+                <div id="back-text" style="font-family:'Playfair Display',serif;font-weight:700;font-size:34px;line-height:1.14;color:var(--ink);max-width:560px;white-space:pre-wrap">{{ primeiro_flashcard.verso }}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;justify-content:center;gap:8px;margin-bottom:14px" id="dots">
+            {% for item in questoes %}
+              <span style="width:12px;height:12px;border-radius:50%;background:{% if forloop.first %}var(--green){% else %}rgba(17,24,22,.12){% endif %};display:inline-block"></span>
+            {% endfor %}
+          </div>
+
+          <div style="display:flex;justify-content:center;gap:14px;flex-wrap:wrap">
+            <button id="prev-btn" class="btn" type="button" style="min-width:170px">← Anterior</button>
+            <button id="flip-btn" class="btn btn-primary" type="button" style="min-width:170px">Virar cartão</button>
+            <button id="next-btn" class="btn btn-primary" type="button" style="min-width:170px">Próximo →</button>
+          </div>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-state-icon">🃏</div>
+            <div class="empty-state-title">Nenhum flashcard disponível</div>
+            <div class="empty-state-sub">O lote não possui questões ativas para exibição.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if questoes %}
+{{ flashcards_json|json_script:"flashcards-data" }}
+<script>
+  (function () {
+    const cards = JSON.parse(document.getElementById('flashcards-data').textContent);
+    let index = 0;
+    let showingBack = false;
+    const card = document.getElementById('card');
+    const frontText = document.getElementById('front-text');
+    const backText = document.getElementById('back-text');
+    const flipBtn = document.getElementById('flip-btn');
+    const prevBtn = document.getElementById('prev-btn');
+    const nextBtn = document.getElementById('next-btn');
+    const dots = Array.from(document.querySelectorAll('#dots span'));
+
+    function render() {
+      const item = cards[index];
+      frontText.textContent = item.frente;
+      backText.textContent = item.verso;
+      card.style.transform = showingBack ? 'rotateY(180deg)' : 'rotateY(0deg)';
+      dots.forEach((dot, i) => {
+        dot.style.background = i === index ? 'var(--green)' : 'rgba(17,24,22,.12)';
+      });
+      prevBtn.disabled = index === 0;
+      nextBtn.disabled = index === cards.length - 1;
+      prevBtn.style.opacity = prevBtn.disabled ? '.45' : '1';
+      nextBtn.style.opacity = nextBtn.disabled ? '.45' : '1';
+    }
+
+    function flip() {
+      showingBack = !showingBack;
+      render();
+    }
+
+    card.addEventListener('click', flip);
+    flipBtn.addEventListener('click', flip);
+    prevBtn.addEventListener('click', function () {
+      if (index > 0) {
+        index -= 1;
+        showingBack = false;
+        render();
+      }
+    });
+    nextBtn.addEventListener('click', function () {
+      if (index < cards.length - 1) {
+        index += 1;
+        showingBack = false;
+        render();
+      }
+    });
+
+    render();
+  })();
+</script>
+{% endif %}
+{% endblock %}

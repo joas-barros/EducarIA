@@ -16,4 +16,32 @@ urlpatterns = [
 
     path('disciplinas/<uuid:disciplina_pk>/ementas/nova/', views.ementa_nova, name='ementa_nova'),
     path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:pk>/excluir/', views.ementa_excluir, name='ementa_excluir'),
+    path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:ementa_pk>/infografico/gerar/', views.infografico_gerar, name='infografico_gerar'),
+    path('disciplinas/<uuid:disciplina_pk>/ementas/<uuid:ementa_pk>/infografico/', views.infografico_visualizar, name='infografico_visualizar'),
+
+    path('questoes/', views.questoes_list, name='questoes'),
+    path('flashcards/', views.flashcards_list, name='flashcards'),
+    path('flashcards/novo/', views.flashcards_novo, name='flashcards_novo'),
+    path('flashcards/criar/', views.flashcards_criar, name='flashcards_criar'),
+    path('flashcards/lotes/<uuid:pk>/', views.flashcards_lote, name='flashcards_lote'),
+    path('flashcards/lotes/<uuid:pk>/editar/', views.flashcards_editar, name='flashcards_editar'),
+    path('flashcards/lotes/<uuid:pk>/excluir/', views.flashcards_excluir, name='flashcards_excluir'),
+    path('questoes/gerar/', views.questoes_gerar, name='questoes_gerar'),
+    path('questoes/gerar/processando/', views.questoes_gerar_processando, name='questoes_gerar_processando'),
+    path('questoes/revisoes/pendentes/', views.questoes_revisoes_pendentes, name='questoes_revisoes_pendentes'),
+    path('questoes/nova/', views.questao_nova, name='questao_nova'),
+    path('questoes/copiar/', views.questoes_copiar, name='questoes_copiar'),
+    path('questoes/lotes/<uuid:pk>/revisao/', views.questoes_revisao_lote, name='questoes_revisao_lote'),
+    path('questoes/lotes/<uuid:lote_pk>/aprovar-todas/', views.questoes_aprovar_todas, name='questoes_aprovar_todas'),
+    path('questoes/<uuid:pk>/', views.questao_detalhe, name='questao_detalhe'),
+    path('questoes/<uuid:pk>/editar/', views.questao_editar, name='questao_editar'),
+    path('questoes/<uuid:pk>/excluir/', views.questao_excluir, name='questao_excluir'),
+    path('questoes/<uuid:pk>/aprovar/', views.questao_aprovar, name='questao_aprovar'),
+    path('questoes/<uuid:pk>/rejeitar/', views.questao_rejeitar, name='questao_rejeitar'),
+
+    # Provas
+    path('provas/', views.provas_list, name='provas'),
+    path('provas/nova/', views.prova_nova, name='prova_nova'),
+    path('provas/<uuid:pk>/', views.prova_detalhe, name='prova_detalhe'),
+    path('provas/<uuid:pk>/excluir/', views.prova_excluir, name='prova_excluir'),
 ]

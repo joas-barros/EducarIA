@@ -1,0 +1,44 @@
+{% extends "app/base.html" %}
+{% block title %}Excluir flashcard — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="flashcards" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'flashcards_lote' lote.id %}" class="breadcrumb">← Flashcard</a>
+        <div class="page-title">Excluir flashcard</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div style="max-width:560px">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600;color:var(--ink);margin-bottom:6px">
+            Excluir este lote de flashcards?
+          </div>
+          <div style="font-size:13px;color:var(--ink-60);line-height:1.6;margin-bottom:16px">
+            Esta ação remove apenas o lote de flashcards. As questões continuam salvas no banco.
+          </div>
+
+          <div style="background:var(--paper);border-radius:var(--r-md);padding:14px;margin-bottom:18px;font-size:12.5px;line-height:1.6">
+            <strong>Ementa:</strong> {% if lote.ementa %}{{ lote.ementa.titulo }}{% else %}Sem ementa{% endif %}<br>
+            <strong>Disciplina:</strong> {{ lote.disciplina.nome }}<br>
+            <strong>Quantidade de questões:</strong> {{ lote.questoes.count }}
+          </div>
+
+          <form method="post">
+            {% csrf_token %}
+            <div style="display:flex;gap:8px;justify-content:flex-end">
+              <a href="{% url 'flashcards_lote' lote.id %}" class="btn">Cancelar</a>
+              <button type="submit" class="btn btn-danger">Confirmar exclusão</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

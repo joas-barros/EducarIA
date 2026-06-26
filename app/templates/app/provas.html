@@ -1,0 +1,72 @@
+{% extends "app/base.html" %}
+{% block title %}Minhas Provas — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="provas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Minhas provas</div>
+        <div class="page-sub">{{ provas|length }} prova{{ provas|length|pluralize:",s" }} gerada{{ provas|length|pluralize:",s" }}</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'prova_nova' %}" id="btn-nova-prova" class="btn btn-primary">+ Criar prova</a>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if provas %}
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Histórico de Provas</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Título</th>
+                <th>Disciplina</th>
+                <th>Questões</th>
+                <th>Data de Criação</th>
+                <th style="width:200px; text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for p in provas %}
+                <tr>
+                  <td>
+                    <a href="{% url 'prova_detalhe' p.id %}" style="color:var(--ink);text-decoration:none;font-weight:600">
+                      {{ p.titulo }}
+                    </a>
+                  </td>
+                  <td>{{ p.disciplina.nome }}</td>
+                  <td>
+                    <span class="badge badge-gray">{{ p.questoes.count }} quest{{ p.questoes.count|pluralize:"ão,ões" }}</span>
+                  </td>
+                  <td>{{ p.criado_em|date:"d/m/Y H:i" }}</td>
+                  <td style="text-align:right">
+                    <div style="display:inline-flex;gap:4px">
+                      <a href="{% url 'prova_detalhe' p.id %}" class="btn btn-ghost btn-sm">Ver Detalhes</a>
+                      <a href="{% url 'prova_excluir' p.id %}" class="btn btn-ghost btn-sm" style="color:var(--red)">Excluir</a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">📄</div>
+            <div class="empty-state-title">Nenhuma prova encontrada</div>
+            <div class="empty-state-sub">Crie avaliações rapidamente selecionando questões manualmente ou gerando de forma automática.</div>
+            <a href="{% url 'prova_nova' %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">+ Criar primeira prova</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,143 @@
+{% extends "app/base.html" %}
+{% block title %}Banco de questões — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="questoes" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Banco de questões</div>
+        <div class="page-sub">{{ questoes|length }} quest{{ questoes|length|pluralize:"ão,ões" }} aprovada{{ questoes|length|pluralize:",s" }} ou editada{{ questoes|length|pluralize:",s" }}</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'questao_nova' %}" class="btn btn-primary">+ Nova questão</a>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="card" style="margin-bottom:14px">
+        <form method="get">
+          <div class="filters-grid">
+            <div class="field" style="margin-bottom:0">
+              <label>Busca</label>
+              <input class="inp" type="search" name="q" value="{{ filtros.q }}" placeholder="Enunciado">
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Disciplina</label>
+              <select class="sel" name="disciplina">
+                <option value="">Todas</option>
+                {% for d in disciplinas %}
+                  <option value="{{ d.id }}"{% if filtros.disciplina == d.id|stringformat:"s" %} selected{% endif %}>{{ d.nome }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Ementa</label>
+              <select class="sel" name="ementa">
+                <option value="">Todas</option>
+                {% for e in ementas %}
+                  <option value="{{ e.id }}"{% if filtros.ementa == e.id|stringformat:"s" %} selected{% endif %}>{{ e.titulo }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Tipo</label>
+              <select class="sel" name="tipo">
+                <option value="">Todos</option>
+                {% for val,label in tipo_choices %}
+                  <option value="{{ val }}"{% if filtros.tipo == val %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label>Dificuldade</label>
+              <select class="sel" name="dificuldade">
+                <option value="">Todas</option>
+                {% for val,label in dificuldade_choices %}
+                  <option value="{{ val }}"{% if filtros.dificuldade == val %} selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button type="submit" class="btn btn-primary" style="flex:1">Filtrar</button>
+              <a href="{% url 'questoes' %}" class="btn">Limpar</a>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {% if questoes %}
+        <form method="post" action="{% url 'questoes_copiar' %}">
+          {% csrf_token %}
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title" style="margin-bottom:0">Questões</div>
+              <div style="display:flex;gap:6px">
+                <button type="submit" class="btn btn-sm">Copiar selecionadas</button>
+                <button type="submit" formaction="{% url 'flashcards_criar' %}" class="btn btn-sm">Criar flashcards</button>
+                <button type="submit" name="download" value="1" class="btn btn-sm">Baixar .txt</button>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:34px"></th>
+                  <th>Enunciado</th>
+                  <th>Disciplina</th>
+                  <th>Tipo</th>
+                  <th>Dificuldade</th>
+                  <th>Status</th>
+                  <th style="width:150px">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for q in questoes %}
+                  <tr>
+                    <td><input type="checkbox" name="questoes" value="{{ q.id }}"></td>
+                    <td>
+                      <a href="{% url 'questao_detalhe' q.id %}" style="color:var(--ink);text-decoration:none;font-weight:500">
+                        {{ q.enunciado|truncatechars:90 }}
+                      </a>
+                      {% if q.ementa %}
+                        <div style="font-size:10.5px;color:var(--ink-60);margin-top:2px">{{ q.ementa.titulo }}</div>
+                      {% endif %}
+                    </td>
+                    <td>{{ q.disciplina.nome }}</td>
+                    <td><span class="badge badge-gray">{{ q.get_tipo_display }}</span></td>
+                    <td>{{ q.get_dificuldade_display }}</td>
+                    <td>
+                      {% if q.status == 'aprovada' %}
+                        <span class="badge badge-green">Aprovada</span>
+                      {% else %}
+                        <span class="badge badge-blue">Editada</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <div style="display:flex;gap:4px">
+                        <a href="{% url 'questao_editar' q.id %}" class="btn btn-ghost btn-sm">Editar</a>
+                        <a href="{% url 'questao_excluir' q.id %}" class="btn btn-ghost btn-sm" style="color:var(--red)">Excluir</a>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </form>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">?</div>
+            <div class="empty-state-title">Nenhuma questão encontrada</div>
+            <div class="empty-state-sub">Cadastre manualmente uma questão ou gere um lote pela API da IA.</div>
+            <a href="{% url 'questao_nova' %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">+ Nova questão</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

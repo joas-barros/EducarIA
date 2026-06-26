@@ -1,0 +1,70 @@
+{% extends "app/base.html" %}
+{% block title %}Flashcards — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="flashcards" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="page-title">Flashcards</div>
+        <div class="page-sub">{{ lotes|length }} lote{{ lotes|length|pluralize:",s" }} criado{{ lotes|length|pluralize:",s" }}</div>
+      </div>
+      <div class="topbar-right">
+        <a href="{% url 'flashcards_novo' %}" class="btn btn-primary">+ Novo flashcard</a>
+      </div>
+    </div>
+
+    <div class="content">
+      {% if lotes %}
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title" style="margin-bottom:0">Lotes por ementa</div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Ementa</th>
+                <th>Disciplina</th>
+                <th>Questões</th>
+                <th>Criado em</th>
+                <th style="width:240px;text-align:right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for lote in lotes %}
+                <tr>
+                  <td>
+                    <a href="{% url 'flashcards_lote' lote.id %}" style="color:var(--ink);text-decoration:none;font-weight:600">
+                      {% if lote.ementa %}{{ lote.ementa.titulo }}{% else %}Sem ementa{% endif %}
+                    </a>
+                  </td>
+                  <td>{{ lote.disciplina.nome }}</td>
+                  <td><span class="badge badge-gray">{{ lote.questoes.count }} quest{{ lote.questoes.count|pluralize:"ão,ões" }}</span></td>
+                  <td>{{ lote.criado_em|date:"d/m/Y H:i" }}</td>
+                  <td style="text-align:right">
+                    <div style="display:inline-flex;gap:4px">
+                      <a href="{% url 'flashcards_lote' lote.id %}" class="btn btn-ghost btn-sm">Estudar</a>
+                      <a href="{% url 'flashcards_editar' lote.id %}" class="btn btn-ghost btn-sm">Editar</a>
+                      <a href="{% url 'flashcards_excluir' lote.id %}" class="btn btn-ghost btn-sm" style="color:var(--red)">Excluir</a>
+                    </div>
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-title">Nenhum flashcard criado</div>
+            <div class="empty-state-sub">Crie um lote escolhendo uma ementa e suas questões aprovadas.</div>
+            <a href="{% url 'flashcards_novo' %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">+ Criar primeiro flashcard</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -19,7 +19,7 @@
       </div>
       <div class="topbar-right">
         <a href="{% url 'disciplina_editar' disciplina.id %}" class="btn">Editar</a>
-        <button class="btn" disabled title="Disponível no Sprint 2">Gerar questões</button>
+        <a href="{% url 'questoes_gerar' %}?disciplina={{ disciplina.id }}" class="btn btn-primary">Gerar questões</a>
         {% if request.user.trabalha_com_idiomas %}
           <button class="btn" disabled title="Disponível no Sprint 3">Gerar listening</button>
         {% endif %}
@@ -60,6 +60,16 @@
                 </div>
                 <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;margin-left:8px">
                   <span class="badge badge-green">Ativa</span>
+                  {% if ementa.infografico and ementa.infografico.status == 'gerado' %}
+                    <a href="{% url 'infografico_visualizar' disciplina.id ementa.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Visualizar infográfico</a>
+                  {% else %}
+                    <a href="{% url 'infografico_gerar' disciplina.id ementa.id %}" class="btn btn-primary btn-sm" style="padding:4px 8px">Gerar infográfico</a>
+                  {% endif %}
+                  {% if ementa.flashcard_lote %}
+                    <a href="{% url 'flashcards_lote' ementa.flashcard_lote.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Ver flashcards</a>
+                  {% else %}
+                    <a href="{% url 'questoes' %}?ementa={{ ementa.id }}" class="btn btn-primary btn-sm" style="padding:4px 8px">Criar flashcards</a>
+                  {% endif %}
                   {% if ementa.tipo_fonte == 'arquivo' and ementa.arquivo %}
                     <a href="{{ ementa.arquivo.url }}" class="btn btn-ghost btn-sm"
                        download title="Baixar arquivo" style="padding:4px 8px">↓</a>
@@ -79,12 +89,54 @@
           {% endif %}
         </div>
 
+        {# Card: Flashcards #}
+        <div class="card">
+          <div class="card-header" style="margin-bottom:{% if lotes_flashcard %}12px{% else %}0{% endif %}">
+            <div class="card-title" style="margin-bottom:0">Flashcards</div>
+            <span class="badge badge-gray">{{ lotes_flashcard|length }} lote{{ lotes_flashcard|length|pluralize:",s" }}</span>
+          </div>
+
+          {% if lotes_flashcard %}
+            {% for lote in lotes_flashcard|slice:":5" %}
+              <div class="ementa-item">
+                <div class="ementa-icon">
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="var(--green)" stroke-width="1.5">
+                    <rect x="2" y="1" width="12" height="14" rx="1.5"/>
+                    <path d="M5 5h6M5 8h6M5 11h4"/>
+                  </svg>
+                </div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:12.5px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    Lote de flashcards
+                  </div>
+                  <div style="font-size:11px;color:var(--ink-60);margin-top:1px">
+                    {{ lote.quantidade_recebida }} questões · {{ lote.criado_em|date:"d/m/Y" }}
+                  </div>
+                </div>
+                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;margin-left:8px">
+                  {% if lote.ementa %}
+                    <span class="badge badge-gray">{{ lote.ementa.titulo }}</span>
+                  {% endif %}
+                  <a href="{% url 'flashcards_lote' lote.id %}" class="btn btn-primary btn-sm" style="padding:4px 8px">Abrir flashcards</a>
+                  <a href="{% url 'flashcards_editar' lote.id %}" class="btn btn-ghost btn-sm" style="padding:4px 8px">Editar</a>
+                </div>
+              </div>
+            {% endfor %}
+          {% else %}
+            <div class="empty-state" style="padding:20px 0">
+              <div class="empty-state-icon">🃏</div>
+              <div class="empty-state-title">Nenhum flashcard criado</div>
+              <div class="empty-state-sub">Selecione questões no banco para gerar um lote de flashcards.</div>
+            </div>
+          {% endif %}
+        </div>
+
         {# Card: Visão geral #}
         <div class="card">
           <div class="card-title">Visão geral</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
             <div class="metric-box">
-              <div class="metric-val">0</div>
+              <div class="metric-val">{{ num_questoes }}</div>
               <div class="metric-lbl">Questões no banco</div>
             </div>
             <div class="metric-box">
@@ -106,18 +158,53 @@
 
       {# Card: Questões recentes #}
       <div class="card">
-        <div class="card-title">Questões recentes desta disciplina</div>
-        <div class="empty-state">
-          <div class="empty-state-icon">✨</div>
-          <div class="empty-state-title">Nenhuma questão gerada ainda</div>
-          <div class="empty-state-sub">
-            {% if ementas %}
-              Clique em "Gerar questões" para criar seu banco de questões com IA.
-            {% else %}
-              Adicione uma ementa e clique em "Gerar questões" para criar seu banco de questões com IA.
-            {% endif %}
-          </div>
+        <div class="card-header">
+          <div class="card-title" style="margin-bottom:0">Questões recentes desta disciplina</div>
+          <a href="{% url 'questoes' %}?disciplina={{ disciplina.id }}" class="btn btn-ghost btn-sm">Ver todas</a>
         </div>
+
+        {% if questoes_recentes %}
+          <table>
+            <thead>
+              <tr>
+                <th>Enunciado</th>
+                <th>Tipo</th>
+                <th>Dificuldade</th>
+                <th>Status</th>
+                <th style="width:80px">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for questao in questoes_recentes %}
+                <tr>
+                  <td>{{ questao.enunciado|truncatechars:90 }}</td>
+                  <td><span class="badge badge-gray">{{ questao.get_tipo_display }}</span></td>
+                  <td>{{ questao.get_dificuldade_display }}</td>
+                  <td>
+                    {% if questao.status == 'aprovada' %}
+                      <span class="badge badge-green">Aprovada</span>
+                    {% else %}
+                      <span class="badge badge-blue">Editada</span>
+                    {% endif %}
+                  </td>
+                  <td><a href="{% url 'questao_detalhe' questao.id %}" class="btn btn-ghost btn-sm">Abrir</a></td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        {% else %}
+          <div class="empty-state">
+            <div class="empty-state-icon">?</div>
+            <div class="empty-state-title">Nenhuma questão gerada ainda</div>
+            <div class="empty-state-sub">
+              {% if ementas %}
+                Quando a API da IA cadastrar um lote, as questões aprovadas aparecerão aqui.
+              {% else %}
+                Adicione uma ementa para preparar a geração de questões com IA.
+              {% endif %}
+            </div>
+          </div>
+        {% endif %}
       </div>
 
       {# Zona de perigo #}

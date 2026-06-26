@@ -1,0 +1,50 @@
+{% extends "app/base.html" %}
+{% block title %}Infográfico — {{ ementa.titulo }} — EducarIA{% endblock %}
+
+{% block body %}
+<div class="with-sidebar">
+  {% include "app/_sidebar.html" with active_page="disciplinas" %}
+
+  <div class="main-area">
+    <div class="topbar">
+      <div class="topbar-left">
+        <a href="{% url 'disciplina_detalhe' disciplina.id %}" class="breadcrumb">← {{ disciplina.nome }}</a>
+        <div class="page-title">Infográfico da ementa</div>
+        <div class="page-sub">{{ ementa.titulo }}</div>
+      </div>
+      <div class="topbar-right">
+        {% if infografico and infografico.arquivo %}
+          <a href="{{ infografico.arquivo.url }}" class="btn btn-primary" download>Baixar infográfico</a>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="content">
+      {% if infografico and infografico.status == 'gerado' and infografico.arquivo %}
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title">Pré-visualização</div>
+          <div style="background:var(--paper);border-radius:var(--r-lg);padding:16px;text-align:center">
+            <img src="{{ infografico.arquivo.url }}" alt="Infográfico da ementa" style="max-width:100%;height:auto;border-radius:12px;box-shadow:var(--shadow-md)">
+          </div>
+        </div>
+
+        {% if infografico.texto_resumo %}
+          <div class="card">
+            <div class="card-title">Texto auxiliar</div>
+            <div style="white-space:pre-wrap;line-height:1.7;color:var(--ink)">{{ infografico.texto_resumo }}</div>
+          </div>
+        {% endif %}
+      {% else %}
+        <div class="card">
+          <div class="empty-state">
+            <div class="empty-state-icon">🖼️</div>
+            <div class="empty-state-title">Infográfico ainda não gerado</div>
+            <div class="empty-state-sub">Use a ação de geração da ementa para criar o material visual.</div>
+            <a href="{% url 'infografico_gerar' disciplina.id ementa.id %}" class="btn btn-primary" style="margin-top:16px;display:inline-flex">Gerar infográfico</a>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
